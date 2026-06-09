@@ -66,6 +66,21 @@ flutter:
   # included with your application, so that you can use the icons in
   # the material Icons class.
   uses-material-design: true
+  assets:
+    - assets/images/
+    - assets/fonts/
+  fonts:
+    - family: EB Garamond
+      fonts:
+        - asset: assets/fonts/EBGaramond-VariableFont_wght.ttf
+        - asset: assets/fonts/EBGaramond-Italic-VariableFont_wght.ttf
+          style: italic
+    - family: Geist
+      fonts:
+        - asset: assets/fonts/Geist-VariableFont_wght.ttf
+        - asset: assets/fonts/Geist-Italic-VariableFont_wght.ttf
+          style: italic
+
 
   # To add assets to your application, add an assets section, like this:
   # assets:

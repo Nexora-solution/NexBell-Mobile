@@ -7,7 +7,8 @@ class AppColors {
   static const Color neutral = Color(0xFF1A1C1E);
   
   static const Color background = Color(0xFF1A1C1E);
-  static const Color surface = Color(0xFF2C2E30); // A slightly lighter version of neutral for surfaces
+  static const Color surface = Color(0xFF2C2E30);
+  static const Color selected = Color(0xFF407671);
 }
 
 class AppFonts {

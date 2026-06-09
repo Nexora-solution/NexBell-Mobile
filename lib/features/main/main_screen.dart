@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 import '../../common/utils/constants.dart';
-import '../dashboard/dashboard_page.dart';
-import '../visits/visits_page.dart';
-import '../history/history_page.dart';
-import '../profile/profile_page.dart';
+import '../../common/widgets/top_bar.dart';
+import '../dashboard/presentation/pages/dashboard_page.dart';
+import '../access/presentation/pages/access_page.dart';
+import '../activity/presentation/pages/activity_page.dart';
+import '../settings/presentation/pages/settings_page.dart';
 
 class MainScreen extends StatefulWidget {
   const MainScreen({super.key});
@@ -15,13 +16,6 @@ class MainScreen extends StatefulWidget {
 class _MainScreenState extends State<MainScreen> {
   int _selectedIndex = 0;
 
-  final List<Widget> _pages = [
-    const DashboardPage(),
-    const VisitsPage(),
-    const HistoryPage(),
-    const ProfilePage(),
-  ];
-
   void _onItemTapped(int index) {
     setState(() {
       _selectedIndex = index;
@@ -30,8 +24,27 @@ class _MainScreenState extends State<MainScreen> {
 
   @override
   Widget build(BuildContext context) {
+    bool isDashboard = _selectedIndex == 0;
+    bool isSettings = _selectedIndex == 3;
+
+    final List<Widget> _pages = [
+      DashboardPage(
+        onPreAuthorize: () => _onItemTapped(1),
+        onSeeAllVisits: () => _onItemTapped(2),
+      ),
+      const AccessPage(),
+      const ActivityPage(),
+      const SettingsPage(),
+    ];
+
     return Scaffold(
       backgroundColor: AppColors.background,
+      appBar: NexBellTopBar(
+        isDashboard: isDashboard,
+        isSettings: isSettings,
+        onLogoTap: () => _onItemTapped(0),
+        onProfileTap: () => _onItemTapped(3),
+      ),
       body: IndexedStack(
         index: _selectedIndex,
         children: _pages,
@@ -51,9 +64,9 @@ class _MainScreenState extends State<MainScreen> {
               mainAxisAlignment: MainAxisAlignment.spaceAround,
               children: [
                 _buildNavItem(0, Icons.grid_view_rounded, 'Dashboard'),
-                _buildNavItem(1, Icons.person_add_alt_1_rounded, 'Visitas'),
-                _buildNavItem(2, Icons.history_rounded, 'Historial'),
-                _buildNavItem(3, Icons.shield_rounded, 'Perfil'),
+                _buildNavItem(1, Icons.person_add_alt_1_rounded, 'Access'),
+                _buildNavItem(2, Icons.history_rounded, 'Activity'),
+                _buildNavItem(3, Icons.settings_rounded, 'Settings'),
               ],
             ),
           ),
