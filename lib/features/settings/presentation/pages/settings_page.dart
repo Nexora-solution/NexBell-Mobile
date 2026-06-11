@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../../common/utils/constants.dart';
+import '../../../auth/presentation/pages/login_page.dart';
 import '../widgets/profile_header.dart';
 import '../widgets/personal_info_section.dart';
 import '../widgets/security_section.dart';
@@ -42,7 +43,12 @@ class SettingsPage extends StatelessWidget {
                   width: double.infinity,
                   child: TextButton(
                     onPressed: () {
-                      // TODO: Implement logout logic
+                      // Mock logout: Return to Login Page
+                      Navigator.pushAndRemoveUntil(
+                        context,
+                        MaterialPageRoute(builder: (context) => const LoginPage()),
+                        (route) => false,
+                      );
                     },
                     style: TextButton.styleFrom(
                       padding: const EdgeInsets.symmetric(vertical: 16),

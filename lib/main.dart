@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'common/utils/constants.dart';
-import 'features/main/main_screen.dart';
+import 'features/auth/presentation/pages/login_page.dart';
 
 void main() {
   runApp(const MyApp());
@@ -40,7 +40,8 @@ class MyApp extends StatelessWidget {
           labelSmall: TextStyle(fontFamily: AppFonts.label),
         ),
       ),
-      home: const MainScreen(),
+      // App starts on LoginPage
+      home: const LoginPage(),
     );
   }
 }

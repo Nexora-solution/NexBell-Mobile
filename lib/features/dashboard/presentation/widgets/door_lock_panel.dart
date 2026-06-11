@@ -52,7 +52,7 @@ class _DoorLockPanelState extends State<DoorLockPanel> {
             ),
             const SizedBox(height: 24),
             Text(
-              _isLocked ? 'Cerradura Asegurada' : 'Cerradura Desbloqueada',
+              _isLocked ? 'Lock Secured' : 'Lock Unlocked',
               style: const TextStyle(
                 color: Colors.white,
                 fontSize: 20,
@@ -62,7 +62,7 @@ class _DoorLockPanelState extends State<DoorLockPanel> {
             ),
             const SizedBox(height: 4),
             Text(
-              'PUERTA PRINCIPAL • ONLINE',
+              'MAIN DOOR • ONLINE',
               style: TextStyle(
                 color: _isLocked ? Colors.grey : AppColors.primary,
                 fontSize: 12,
