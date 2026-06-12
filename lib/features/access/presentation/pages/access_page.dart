@@ -50,7 +50,7 @@ class AccessPage extends StatelessWidget {
               child: const Row(
                 children: [
                   Icon(Icons.info_outline, color: AppColors.primary, size: 20),
-                  const SizedBox(width: 12),
+                  SizedBox(width: 12),
                   Expanded(
                     child: Text(
                       'The doorman will receive this information automatically to speed up entry.',

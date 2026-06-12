@@ -1,23 +1,134 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import '../../../../common/utils/constants.dart';
+import '../../../../common/utils/api_client.dart';
 
 class AttendVisitPage extends StatefulWidget {
-  const AttendVisitPage({super.key});
+  final int visitRequestId;
+
+  const AttendVisitPage({
+    super.key,
+    required this.visitRequestId,
+  });
 
   @override
   State<AttendVisitPage> createState() => _AttendVisitPageState();
 }
 
 class _AttendVisitPageState extends State<AttendVisitPage> {
-  // Mock data for the view
-  // Change to null to test the "Visitor" (unidentified) state
-  final String? visitorName = "Alejandro Ferraro"; 
-  final String? visitorDni = "34.556.782";
+  bool _isLoading = true;
+  String? _visitorName;
+  String? _visitorDni;
+  String _visitorType = 'walk-in';
+  String _streamUrl = '';
+  String _streamToken = '';
   bool isAudioConnected = false;
 
   @override
+  void initState() {
+    super.initState();
+    _loadData();
+  }
+
+  Future<void> _loadData() async {
+    try {
+      // 1. Fetch streaming details
+      final streamResponse = await ApiClient.get('/api/intercom/visit-requests/${widget.visitRequestId}/stream');
+      if (streamResponse.statusCode == 200) {
+        final streamData = jsonDecode(streamResponse.body);
+        _streamUrl = streamData['streamUrl'] as String? ?? '';
+        _streamToken = streamData['token'] as String? ?? '';
+      }
+
+      // 2. Fetch visitor info from pending queue to resolve DNI if possible
+      final queueResponse = await ApiClient.get('/api/intercom/queue/pending');
+      bool foundInQueue = false;
+      if (queueResponse.statusCode == 200) {
+        final List queueData = jsonDecode(queueResponse.body);
+        final item = queueData.firstWhere(
+          (element) => element['visitRequestId'] == widget.visitRequestId,
+          orElse: () => null,
+        );
+        if (item != null) {
+          _visitorName = item['visitorName'];
+          _visitorDni = item['dni'] == '—' ? null : item['dni'];
+          _visitorType = item['type'] ?? 'walk-in';
+          foundInQueue = true;
+        }
+      }
+
+      // 3. Fallback to direct visit request details if not found in queue
+      if (!foundInQueue) {
+        final detailResponse = await ApiClient.get('/api/intercom/visit-requests/${widget.visitRequestId}');
+        if (detailResponse.statusCode == 200) {
+          final detailData = jsonDecode(detailResponse.body);
+          _visitorName = detailData['visitorName'];
+          _visitorDni = null;
+          _visitorType = 'walk-in';
+        }
+      }
+
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error loading visit details: $e')),
+        );
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _submitDecision(String decision) async {
+    try {
+      final response = await ApiClient.post(
+        '/api/intercom/visit-requests/${widget.visitRequestId}/decision',
+        body: {'decision': decision},
+      );
+
+      if (response.statusCode == 200) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Visit request $decision')),
+          );
+          Navigator.pop(context);
+        }
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Failed to submit decision')),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: $e')),
+        );
+      }
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
-    bool isIdentified = visitorName != null;
+    if (_isLoading) {
+      return const Scaffold(
+        backgroundColor: AppColors.background,
+        body: Center(
+          child: CircularProgressIndicator(
+            color: AppColors.primary,
+          ),
+        ),
+      );
+    }
+
+    bool isIdentified = _visitorType == 'pre-registered';
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -69,6 +180,39 @@ class _AttendVisitPageState extends State<AttendVisitPage> {
                       // Camera Corner Accents (Brackets)
                       _buildCornerBrackets(),
                       
+                      // Stream details overlay
+                      Positioned(
+                        top: 20,
+                        left: 20,
+                        right: 20,
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Expanded(
+                              child: Text(
+                                'STREAM: $_streamUrl',
+                                style: const TextStyle(
+                                  color: Colors.white30,
+                                  fontSize: 10,
+                                  fontFamily: AppFonts.label,
+                                ),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                            if (_streamToken.isNotEmpty)
+                              Text(
+                                'SECURED',
+                                style: TextStyle(
+                                  color: AppColors.primary.withOpacity(0.7),
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.bold,
+                                  fontFamily: AppFonts.label,
+                                ),
+                              ),
+                          ],
+                        ),
+                      ),
+                      
                       // Visitor Info Overlay (Bottom)
                       Positioned(
                         bottom: 40,
@@ -95,17 +239,17 @@ class _AttendVisitPageState extends State<AttendVisitPage> {
                               ),
                             const SizedBox(height: 8),
                             Text(
-                              visitorName ?? "Visitor",
+                              _visitorName ?? "Visitor",
                               style: const TextStyle(
                                 color: Colors.white,
                                 fontSize: 32,
                                 fontFamily: AppFonts.headline,
                               ),
                             ),
-                            if (isIdentified && visitorDni != null) ...[
+                            if (isIdentified && _visitorDni != null) ...[
                               const SizedBox(height: 4),
                               Text(
-                                'DNI: $visitorDni',
+                                'DNI: $_visitorDni',
                                 style: const TextStyle(
                                   color: Colors.white70,
                                   fontSize: 16,
@@ -134,10 +278,7 @@ class _AttendVisitPageState extends State<AttendVisitPage> {
                 icon: Icons.vpn_key_outlined,
                 backgroundColor: AppColors.primary,
                 textColor: AppColors.neutral,
-                onTap: () {
-                  // TODO: Integrate with POST /api/intercom/visit-requests/{id}/decision
-                  Navigator.pop(context);
-                },
+                onTap: () => _submitDecision('APPROVED'),
               ),
               const SizedBox(height: 12),
               _buildLargeButton(
@@ -146,7 +287,7 @@ class _AttendVisitPageState extends State<AttendVisitPage> {
                 backgroundColor: Colors.transparent,
                 textColor: Colors.redAccent,
                 borderColor: Colors.redAccent.withOpacity(0.3),
-                onTap: () => Navigator.pop(context),
+                onTap: () => _submitDecision('REJECTED'),
               ),
               const SizedBox(height: 20),
             ],
