@@ -47,4 +47,12 @@ class ApiClient {
     final bodyStr = body != null ? jsonEncode(body) : null;
     return http.post(url, headers: headers, body: bodyStr);
   }
+
+  static Future<http.Response> put(String path, {Object? body}) async {
+    final baseUrl = apiBase();
+    final url = Uri.parse('$baseUrl$path');
+    final headers = await _getHeaders();
+    final bodyStr = body != null ? jsonEncode(body) : null;
+    return http.put(url, headers: headers, body: bodyStr);
+  }
 }
