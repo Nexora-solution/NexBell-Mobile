@@ -18,6 +18,24 @@ class _LoginPageState extends State<LoginPage> {
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
 
+  Future<void> _fetchAndSaveUserData() async {
+    try {
+      final profileRes = await ApiClient.get('/api/iam/users/me');
+      if (profileRes.statusCode != 200) return;
+      final profile = jsonDecode(profileRes.body);
+      final userId = profile['id'] as int?;
+      if (userId == null) return;
+      final apartmentId = profile['apartmentId'] as int?;
+      final residentId = (profile['residentId'] as int?) ?? userId;
+
+      await ApiClient.saveUserData(
+        userId: userId,
+        apartmentId: apartmentId ?? 0,
+        residentId: residentId,
+      );
+    } catch (_) {}
+  }
+
   Future<void> _handleLogin() async {
     final email = _emailController.text.trim();
     final password = _passwordController.text;
@@ -40,8 +58,11 @@ class _LoginPageState extends State<LoginPage> {
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
         final token = data['accessToken'] as String?;
+        final refreshToken = data['refreshToken'] as String?;
         if (token != null) {
           await ApiClient.saveToken(token);
+          if (refreshToken != null) await ApiClient.saveRefreshToken(refreshToken);
+          await _fetchAndSaveUserData();
           if (mounted) {
             Navigator.pushReplacement(
               context,

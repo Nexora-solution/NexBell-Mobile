@@ -1,10 +1,64 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import '../../../../common/utils/constants.dart';
+import '../../../../common/utils/api_client.dart';
 
-class TodayVisitsSection extends StatelessWidget {
+class TodayVisitsSection extends StatefulWidget {
   final VoidCallback onSeeAll;
 
   const TodayVisitsSection({super.key, required this.onSeeAll});
+
+  @override
+  State<TodayVisitsSection> createState() => _TodayVisitsSectionState();
+}
+
+class _TodayVisitsSectionState extends State<TodayVisitsSection> {
+  List<Map<String, dynamic>> _visits = [];
+  bool _isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchTodayVisits();
+  }
+
+  Future<void> _fetchTodayVisits() async {
+    try {
+      final userId = await ApiClient.getUserId() ?? 0;
+      final response = await ApiClient.get('/api/audit/access-records/resident/$userId');
+      if (response.statusCode == 200) {
+        final List<dynamic> records = jsonDecode(response.body);
+        final today = DateTime.now();
+        final todayVisits = records.where((r) {
+          final createdAt = ApiClient.parseDateTime(r['createdAt']);
+          if (createdAt == null) return false;
+          return createdAt.year == today.year &&
+              createdAt.month == today.month &&
+              createdAt.day == today.day;
+        }).toList();
+
+        if (mounted) {
+          setState(() {
+            _visits = todayVisits.cast<Map<String, dynamic>>();
+            _isLoading = false;
+          });
+        }
+      } else {
+        if (mounted) setState(() => _isLoading = false);
+      }
+    } catch (_) {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  IconData _iconForType(String? type) {
+    switch (type) {
+      case 'pre-registered':
+        return Icons.person_outline;
+      default:
+        return Icons.door_front_door_outlined;
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -23,7 +77,7 @@ class TodayVisitsSection extends StatelessWidget {
               ),
             ),
             TextButton(
-              onPressed: onSeeAll,
+              onPressed: widget.onSeeAll,
               child: const Text(
                 'See All',
                 style: TextStyle(
@@ -36,18 +90,43 @@ class TodayVisitsSection extends StatelessWidget {
           ],
         ),
         const SizedBox(height: 8),
-        SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-          child: Row(
-            children: [
-              _buildVisitPill(Icons.delivery_dining_outlined, 'Rappi', '14:30'),
-              const SizedBox(width: 12),
-              _buildVisitPill(Icons.person_outline, 'Laura G.', '18:00'),
-              const SizedBox(width: 12),
-              _buildVisitPill(Icons.home_repair_service_outlined, 'Technician', '10:00'),
-            ],
+        if (_isLoading)
+          const SizedBox(
+            height: 70,
+            child: Center(
+              child: CircularProgressIndicator(color: AppColors.primary, strokeWidth: 2),
+            ),
+          )
+        else if (_visits.isEmpty)
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
+            decoration: BoxDecoration(
+              color: AppColors.surface,
+              borderRadius: BorderRadius.circular(30),
+            ),
+            child: const Text(
+              'No visits today',
+              style: TextStyle(color: Colors.grey, fontFamily: AppFonts.body),
+            ),
+          )
+        else
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children: _visits.map((visit) {
+                final createdAt = ApiClient.parseDateTime(visit['createdAt']);
+                final time = createdAt != null
+                    ? '${createdAt.hour.toString().padLeft(2, '0')}:${createdAt.minute.toString().padLeft(2, '0')}'
+                    : '--:--';
+                final name = visit['visitorName'] as String? ?? 'Unknown';
+                final type = visit['type'] as String?;
+                return Padding(
+                  padding: const EdgeInsets.only(right: 12),
+                  child: _buildVisitPill(_iconForType(type), name, time),
+                );
+              }).toList(),
+            ),
           ),
-        ),
       ],
     );
   }
@@ -73,17 +152,11 @@ class TodayVisitsSection extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 8),
-          const Text(
-            '•',
-            style: TextStyle(color: Colors.grey),
-          ),
+          const Text('•', style: TextStyle(color: Colors.grey)),
           const SizedBox(width: 8),
           Text(
             time,
-            style: const TextStyle(
-              color: Colors.grey,
-              fontFamily: AppFonts.label,
-            ),
+            style: const TextStyle(color: Colors.grey, fontFamily: AppFonts.label),
           ),
         ],
       ),

@@ -20,6 +20,7 @@ class _SettingsPageState extends State<SettingsPage> {
   String _email = '';
   String _role = '';
   String _initials = '';
+  String _apartment = '';
 
   @override
   void initState() {
@@ -47,12 +48,26 @@ class _SettingsPageState extends State<SettingsPage> {
           }
         }
 
+        // Fetch apartment code from resident profile
+        String apartmentCode = '';
+        final residentId = data['residentId'];
+        if (residentId != null) {
+          try {
+            final resRes = await ApiClient.get('/api/directory/residents/$residentId');
+            if (resRes.statusCode == 200) {
+              final resData = jsonDecode(resRes.body);
+              apartmentCode = resData['apartmentCode'] as String? ?? '';
+            }
+          } catch (_) {}
+        }
+
         if (mounted) {
           setState(() {
             _name = name;
             _email = email;
             _role = role;
             _initials = initials;
+            _apartment = apartmentCode;
             _isLoading = false;
           });
         }
@@ -61,16 +76,24 @@ class _SettingsPageState extends State<SettingsPage> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error loading profile: ${e.toString()}')),
-        );
-        setState(() => _isLoading = false);
+        setState(() {
+          _role = 'resident';
+          _name = 'Resident User';
+          _initials = 'RU';
+          _isLoading = false;
+        });
       }
     }
   }
 
   Future<void> _handleLogout() async {
-    await ApiClient.clearToken();
+    final refreshToken = await ApiClient.getRefreshToken();
+    if (refreshToken != null) {
+      try {
+        await ApiClient.post('/api/iam/logout?refreshToken=$refreshToken');
+      } catch (_) {}
+    }
+    await ApiClient.clearAll();
     if (mounted) {
       Navigator.pushAndRemoveUntil(
         context,
@@ -93,7 +116,10 @@ class _SettingsPageState extends State<SettingsPage> {
       );
     }
 
-    final tier = _role.toUpperCase() == 'RESIDENT' ? 'Resident Security Tier' : '${_role[0].toUpperCase()}${_role.substring(1)} Security Tier';
+    final roleDisplay = _role.isEmpty ? 'resident' : _role.toLowerCase();
+    final tier = roleDisplay == 'resident'
+        ? 'Resident Security Tier'
+        : '${roleDisplay[0].toUpperCase()}${roleDisplay.substring(1)} Security Tier';
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -111,6 +137,7 @@ class _SettingsPageState extends State<SettingsPage> {
               PersonalInfoSection(
                 initialName: _name,
                 initialEmail: _email,
+                initialApartment: _apartment,
               ),
               const SizedBox(height: 24),
               const SecuritySection(),
