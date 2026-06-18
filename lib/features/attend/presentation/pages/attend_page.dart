@@ -22,6 +22,7 @@ class _AttendVisitPageState extends State<AttendVisitPage> {
   String _visitorType = 'walk-in';
   String _streamUrl = '';
   String _streamToken = '';
+  String? _photoUrl;
   bool isAudioConnected = false;
 
   @override
@@ -57,11 +58,12 @@ class _AttendVisitPageState extends State<AttendVisitPage> {
         }
       }
 
-      // 3. Fallback to direct visit request details if not found in queue
-      if (!foundInQueue) {
-        final detailResponse = await ApiClient.get('/api/intercom/visit-requests/${widget.visitRequestId}');
-        if (detailResponse.statusCode == 200) {
-          final detailData = jsonDecode(detailResponse.body);
+      // 3. Fetch visit request details to resolve photoUrl (and fallback visitor details if not found in queue)
+      final detailResponse = await ApiClient.get('/api/intercom/visit-requests/${widget.visitRequestId}');
+      if (detailResponse.statusCode == 200) {
+        final detailData = jsonDecode(detailResponse.body);
+        _photoUrl = detailData['photoUrl'] as String?;
+        if (!foundInQueue) {
           _visitorName = detailData['visitorName'];
           _visitorDni = null;
           _visitorType = 'walk-in';
@@ -177,6 +179,30 @@ class _AttendVisitPageState extends State<AttendVisitPage> {
                   ),
                   child: Stack(
                     children: [
+                      // Visitor Photo Background
+                      if (_photoUrl != null && _photoUrl!.isNotEmpty)
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(30),
+                          child: SizedBox(
+                            width: double.infinity,
+                            height: double.infinity,
+                            child: Image.network(
+                              _photoUrl!,
+                              fit: BoxFit.cover,
+                              loadingBuilder: (context, child, loadingProgress) {
+                                if (loadingProgress == null) return child;
+                                return const Center(
+                                  child: CircularProgressIndicator(color: AppColors.primary),
+                                );
+                              },
+                              errorBuilder: (context, error, stackTrace) {
+                                return const Center(
+                                  child: Icon(Icons.broken_image, color: Colors.white24, size: 48),
+                                );
+                              },
+                            ),
+                          ),
+                        ),
                       // Camera Corner Accents (Brackets)
                       _buildCornerBrackets(),
                       
