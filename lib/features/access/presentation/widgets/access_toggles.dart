@@ -73,7 +73,7 @@ class _AccessTogglesState extends State<AccessToggles> {
           Switch(
             value: value,
             onChanged: onChanged,
-            activeColor: AppColors.primary,
+            activeThumbColor: AppColors.primary,
             activeTrackColor: AppColors.primary.withOpacity(0.2),
             inactiveThumbColor: Colors.white,
             inactiveTrackColor: Colors.grey[800],

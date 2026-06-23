@@ -27,7 +27,7 @@ class _MainScreenState extends State<MainScreen> {
     bool isDashboard = _selectedIndex == 0;
     bool isSettings = _selectedIndex == 3;
 
-    final List<Widget> _pages = [
+    final List<Widget> pages = [
       DashboardPage(
         onPreAuthorize: () => _onItemTapped(1),
         onSeeAllVisits: () => _onItemTapped(2),
@@ -47,7 +47,7 @@ class _MainScreenState extends State<MainScreen> {
       ),
       body: IndexedStack(
         index: _selectedIndex,
-        children: _pages,
+        children: pages,
       ),
       bottomNavigationBar: Container(
         decoration: const BoxDecoration(

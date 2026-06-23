@@ -39,7 +39,6 @@ class AccessPage extends StatelessWidget {
             const SizedBox(height: 16),
             const AccessToggles(),
             const SizedBox(height: 24),
-            // Info Message
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
@@ -50,7 +49,7 @@ class AccessPage extends StatelessWidget {
               child: const Row(
                 children: [
                   Icon(Icons.info_outline, color: AppColors.primary, size: 20),
-                  const SizedBox(width: 12),
+                  SizedBox(width: 12),
                   Expanded(
                     child: Text(
                       'The doorman will receive this information automatically to speed up entry.',
@@ -63,39 +62,6 @@ class AccessPage extends StatelessWidget {
                     ),
                   ),
                 ],
-              ),
-            ),
-            const SizedBox(height: 32),
-            // Submit Button
-            SizedBox(
-              width: double.infinity,
-              height: 56,
-              child: ElevatedButton(
-                onPressed: () {
-                  // TODO: Implement pre-authorization generation
-                },
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.primary,
-                  foregroundColor: AppColors.neutral,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(28),
-                  ),
-                ),
-                child: const Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Text(
-                      'Generate Pre-authorization',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                        fontFamily: AppFonts.body,
-                      ),
-                    ),
-                    SizedBox(width: 8),
-                    Icon(Icons.shield_outlined, size: 20),
-                  ],
-                ),
               ),
             ),
             const SizedBox(height: 40),
