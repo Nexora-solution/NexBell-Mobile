@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import '../../../../common/utils/constants.dart';
 import '../../../../common/utils/api_client.dart';
+import '../../../../common/services/push_notification_service.dart';
 import '../../../../features/main/main_screen.dart';
 import 'forgot_password_page.dart';
 
@@ -63,6 +64,7 @@ class _LoginPageState extends State<LoginPage> {
           await ApiClient.saveToken(token);
           if (refreshToken != null) await ApiClient.saveRefreshToken(refreshToken);
           await _fetchAndSaveUserData();
+          await PushNotificationService.instance.registerToken();
           if (mounted) {
             Navigator.pushReplacement(
               context,
