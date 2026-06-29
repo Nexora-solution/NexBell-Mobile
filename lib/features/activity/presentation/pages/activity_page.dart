@@ -15,7 +15,11 @@ class ActivityPage extends StatefulWidget {
 class _ActivityPageState extends State<ActivityPage> {
   bool _isLoading = true;
   String? _error;
-  Map<String, List<Map<String, dynamic>>> _grouped = {};
+  List<Map<String, dynamic>> _records = [];
+  // 'all' | 'delivery' | 'personal' — best-effort mapping from the backend's
+  // 'type' field (pre-registered visits = Personal; everything else = Delivery)
+  // until the backend models proper visit categories.
+  String _filter = 'all';
 
   @override
   void initState() {
@@ -38,7 +42,7 @@ class _ActivityPageState extends State<ActivityPage> {
         });
         if (mounted) {
           setState(() {
-            _grouped = _groupByDate(records);
+            _records = records;
             _isLoading = false;
           });
         }
@@ -57,10 +61,10 @@ class _ActivityPageState extends State<ActivityPage> {
     final weekAgo = today.subtract(const Duration(days: 7));
 
     final Map<String, List<Map<String, dynamic>>> groups = {
-      'TODAY': [],
-      'YESTERDAY': [],
-      'THIS WEEK': [],
-      'OLDER': [],
+      'HOY': [],
+      'AYER': [],
+      'ESTA SEMANA': [],
+      'ANTERIOR': [],
     };
 
     for (final r in records) {
@@ -68,13 +72,13 @@ class _ActivityPageState extends State<ActivityPage> {
       if (dt == null) continue;
       final day = DateTime(dt.year, dt.month, dt.day);
       if (day == today) {
-        groups['TODAY']!.add(r);
+        groups['HOY']!.add(r);
       } else if (day == yesterday) {
-        groups['YESTERDAY']!.add(r);
+        groups['AYER']!.add(r);
       } else if (day.isAfter(weekAgo)) {
-        groups['THIS WEEK']!.add(r);
+        groups['ESTA SEMANA']!.add(r);
       } else {
-        groups['OLDER']!.add(r);
+        groups['ANTERIOR']!.add(r);
       }
     }
 
@@ -95,8 +99,48 @@ class _ActivityPageState extends State<ActivityPage> {
     return '${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
   }
 
+  // History only shows visits that were actually decided — pending/undecided
+  // records never appear here.
+  bool _isDecided(Map<String, dynamic> record) {
+    final decision = record['decision'] as String?;
+    return decision == 'APPROVED' || decision == 'REJECTED';
+  }
+
+  bool _matchesFilter(Map<String, dynamic> record) {
+    if (!_isDecided(record)) return false;
+    if (_filter == 'all') return true;
+    final type = record['type'] as String? ?? 'walk-in';
+    final isPersonal = type == 'pre-registered';
+    return _filter == 'personal' ? isPersonal : !isPersonal;
+  }
+
+  Widget _filterChip(String label, String value) {
+    final selected = _filter == value;
+    return GestureDetector(
+      onTap: () => setState(() => _filter = value),
+      child: Container(
+        margin: const EdgeInsets.only(right: 10),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        decoration: BoxDecoration(
+          color: selected ? AppColors.primary : AppColors.surface,
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            color: selected ? AppColors.neutral : Colors.white70,
+            fontWeight: FontWeight.bold,
+            fontSize: 13,
+            fontFamily: AppFonts.body,
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    final grouped = _groupByDate(_records.where(_matchesFilter).toList());
     return Scaffold(
       backgroundColor: AppColors.background,
       body: RefreshIndicator(
@@ -111,14 +155,23 @@ class _ActivityPageState extends State<ActivityPage> {
               const Padding(
                 padding: EdgeInsets.only(top: 24.0, bottom: 8.0),
                 child: Text(
-                  'Activity History',
+                  'HISTORIAL DE VISITAS',
                   style: TextStyle(
                     fontFamily: AppFonts.headline,
-                    fontSize: 32,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 26,
                     color: Colors.white,
                   ),
                 ),
               ),
+              Row(
+                children: [
+                  _filterChip('Todos', 'all'),
+                  _filterChip('Delivery', 'delivery'),
+                  _filterChip('Personal', 'personal'),
+                ],
+              ),
+              const SizedBox(height: 8),
               if (_isLoading)
                 const Padding(
                   padding: EdgeInsets.only(top: 40),
@@ -131,35 +184,35 @@ class _ActivityPageState extends State<ActivityPage> {
                   padding: const EdgeInsets.only(top: 40),
                   child: Center(
                     child: Text(
-                      'Error loading activity',
+                      'Error al cargar el historial',
                       style: const TextStyle(color: Colors.grey, fontFamily: AppFonts.body),
                     ),
                   ),
                 )
-              else if (_grouped.isEmpty)
+              else if (grouped.isEmpty)
                 const Padding(
                   padding: EdgeInsets.only(top: 40),
                   child: Center(
                     child: Text(
-                      'No activity yet',
+                      'Todavía no hay actividad.',
                       style: TextStyle(color: Colors.grey, fontFamily: AppFonts.body),
                     ),
                   ),
                 )
               else
-                ..._grouped.entries.map((entry) {
+                ...grouped.entries.map((entry) {
                   return Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       ActivitySectionHeader(title: entry.key),
                       ...entry.value.map((record) {
                         final dt = ApiClient.parseDateTime(record['createdAt']);
-                        final name = record['visitorName'] as String? ?? 'Unknown';
+                        final name = record['visitorName'] as String? ?? 'Visitante';
                         final decision = record['decision'] as String?;
                         final type = record['type'] as String? ?? 'walk-in';
                         return ActivityItemCard(
                           visitorName: name,
-                          category: type == 'pre-registered' ? 'Pre-registered' : 'Walk-in',
+                          category: type == 'pre-registered' ? 'Personal' : 'Delivery',
                           time: _formatTime(dt),
                           status: _toVisitStatus(decision),
                         );

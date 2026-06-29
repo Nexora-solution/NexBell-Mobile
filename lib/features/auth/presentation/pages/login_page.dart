@@ -19,6 +19,13 @@ class _LoginPageState extends State<LoginPage> {
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
 
+  @override
+  void dispose() {
+    _emailController.dispose();
+    _passwordController.dispose();
+    super.dispose();
+  }
+
   Future<void> _fetchAndSaveUserData() async {
     try {
       final profileRes = await ApiClient.get('/api/iam/users/me');
@@ -43,7 +50,7 @@ class _LoginPageState extends State<LoginPage> {
 
     if (email.isEmpty || password.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please fill in all fields')),
+        const SnackBar(content: Text('Completa todos los campos')),
       );
       return;
     }
@@ -77,14 +84,14 @@ class _LoginPageState extends State<LoginPage> {
       } else {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Invalid email or password')),
+            const SnackBar(content: Text('Correo o contraseña inválidos')),
           );
         }
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Login failed: ${e.toString()}')),
+          SnackBar(content: Text('Error al iniciar sesión: ${e.toString()}')),
         );
       }
     } finally {
@@ -98,73 +105,96 @@ class _LoginPageState extends State<LoginPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.background,
-      body: SingleChildScrollView(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 24.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              const SizedBox(height: 80),
-              // Logo Placeholder
-              Container(
-                padding: const EdgeInsets.all(20),
-                decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.05),
-                  shape: BoxShape.circle,
+      appBar: AppBar(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        iconTheme: const IconThemeData(color: Colors.white),
+      ),
+      extendBodyBehindAppBar: true,
+      body: SafeArea(
+        child: SingleChildScrollView(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 24.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                const SizedBox(height: 40),
+                // Emblem
+                Container(
+                  width: 80,
+                  height: 80,
+                  decoration: BoxDecoration(
+                    color: AppColors.surface,
+                    shape: BoxShape.circle,
+                    border: Border.all(color: Colors.white10),
+                  ),
+                  alignment: Alignment.center,
+                  child: const Icon(Icons.shield, color: AppColors.primary, size: 38),
                 ),
-                child: const Icon(
-                  Icons.shield_outlined, // TODO: Replace with minimalist logo
-                  color: AppColors.primary,
-                  size: 60,
+                const SizedBox(height: 20),
+                const Text(
+                  'NEXBELL',
+                  style: TextStyle(
+                    fontFamily: AppFonts.headline,
+                    fontSize: 32,
+                    fontWeight: FontWeight.bold,
+                    color: AppColors.primary,
+                    letterSpacing: 4,
+                  ),
                 ),
-              ),
-              const SizedBox(height: 24),
-              const Text(
-                'NEXBELL',
-                style: TextStyle(
-                  fontFamily: AppFonts.headline,
-                  fontSize: 32,
-                  fontWeight: FontWeight.bold,
-                  color: AppColors.primary,
-                  letterSpacing: 4,
+                const Text(
+                  'R E S I D E N T',
+                  style: TextStyle(
+                    fontFamily: AppFonts.label,
+                    fontSize: 12,
+                    color: Colors.grey,
+                    letterSpacing: 3,
+                  ),
                 ),
-              ),
-              const Text(
-                'NEXBELL RESIDENT',
-                style: TextStyle(
-                  fontFamily: AppFonts.label,
-                  fontSize: 12,
-                  color: Colors.grey,
-                  letterSpacing: 2,
+                const SizedBox(height: 56),
+
+                _buildFieldLabel('CORREO ELECTRÓNICO'),
+                const SizedBox(height: 8),
+                _buildTextField(
+                  controller: _emailController,
+                  hint: 'nombre@ejemplo.com',
+                  prefixIcon: Icons.alternate_email,
+                  keyboardType: TextInputType.emailAddress,
                 ),
-              ),
-              const SizedBox(height: 60),
-              
-              // Email Field
-              _buildFieldLabel('EMAIL ADDRESS'),
-              const SizedBox(height: 8),
-              _buildTextField(
-                controller: _emailController,
-                hint: 'name@example.com',
-                prefixIcon: Icons.alternate_email,
-              ),
-              
-              const SizedBox(height: 24),
-              
-              // Password Field
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  _buildFieldLabel('PASSWORD'),
-                  GestureDetector(
-                    onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(builder: (context) => const ForgotPasswordPage()),
-                      );
-                    },
+
+                const SizedBox(height: 24),
+
+                _buildFieldLabel('CONTRASEÑA'),
+                const SizedBox(height: 8),
+                _buildTextField(
+                  controller: _passwordController,
+                  hint: '••••••••',
+                  prefixIcon: Icons.lock_outline,
+                  obscureText: _obscurePassword,
+                  suffixIcon: IconButton(
+                    icon: Icon(
+                      _obscurePassword
+                          ? Icons.visibility_outlined
+                          : Icons.visibility_off_outlined,
+                      color: Colors.grey,
+                      size: 20,
+                    ),
+                    onPressed: () =>
+                        setState(() => _obscurePassword = !_obscurePassword),
+                  ),
+                ),
+
+                const SizedBox(height: 12),
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: GestureDetector(
+                    onTap: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                          builder: (context) => const ForgotPasswordPage()),
+                    ),
                     child: const Text(
-                      'Forgot password?',
+                      '¿Olvidaste tu contraseña?',
                       style: TextStyle(
                         color: AppColors.primary,
                         fontSize: 12,
@@ -173,67 +203,37 @@ class _LoginPageState extends State<LoginPage> {
                       ),
                     ),
                   ),
-                ],
-              ),
-              const SizedBox(height: 8),
-              _buildTextField(
-                controller: _passwordController,
-                hint: '••••••••',
-                prefixIcon: Icons.lock_outline,
-                obscureText: _obscurePassword,
-                suffixIcon: IconButton(
-                  icon: Icon(
-                    _obscurePassword ? Icons.visibility_outlined : Icons.visibility_off_outlined,
-                    color: Colors.grey,
-                    size: 20,
-                  ),
-                  onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
                 ),
-              ),
-              
-              const SizedBox(height: 60),
-              
-              // Sign In Button
-              SizedBox(
-                width: double.infinity,
-                height: 56,
-                child: ElevatedButton(
-                  onPressed: _isLoading ? null : _handleLogin,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.primary,
-                    foregroundColor: AppColors.neutral,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(28),
+
+                const SizedBox(height: 48),
+
+                // Circular submit button
+                GestureDetector(
+                  onTap: _isLoading ? null : _handleLogin,
+                  child: Container(
+                    width: 64,
+                    height: 64,
+                    decoration: const BoxDecoration(
+                      color: AppColors.primary,
+                      shape: BoxShape.circle,
                     ),
-                  ),
-                  child: _isLoading
-                      ? const SizedBox(
-                          height: 24,
-                          width: 24,
-                          child: CircularProgressIndicator(
-                            color: AppColors.neutral,
-                            strokeWidth: 2,
-                          ),
-                        )
-                      : const Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Text(
-                              'Sign In',
-                              style: TextStyle(
-                                fontSize: 18,
-                                fontWeight: FontWeight.bold,
-                                fontFamily: AppFonts.body,
-                              ),
+                    alignment: Alignment.center,
+                    child: _isLoading
+                        ? const SizedBox(
+                            height: 24,
+                            width: 24,
+                            child: CircularProgressIndicator(
+                              color: AppColors.neutral,
+                              strokeWidth: 2,
                             ),
-                            SizedBox(width: 8),
-                            Icon(Icons.arrow_forward, size: 20),
-                          ],
-                        ),
+                          )
+                        : const Icon(Icons.arrow_forward,
+                            color: AppColors.neutral, size: 28),
+                  ),
                 ),
-              ),
-              const SizedBox(height: 40),
-            ],
+                const SizedBox(height: 40),
+              ],
+            ),
           ),
         ),
       ),
@@ -250,6 +250,7 @@ class _LoginPageState extends State<LoginPage> {
           fontSize: 12,
           fontWeight: FontWeight.bold,
           fontFamily: AppFonts.label,
+          letterSpacing: 0.5,
         ),
       ),
     );
@@ -261,6 +262,7 @@ class _LoginPageState extends State<LoginPage> {
     required IconData prefixIcon,
     bool obscureText = false,
     Widget? suffixIcon,
+    TextInputType? keyboardType,
   }) {
     return Container(
       decoration: BoxDecoration(
@@ -270,6 +272,7 @@ class _LoginPageState extends State<LoginPage> {
       child: TextField(
         controller: controller,
         obscureText: obscureText,
+        keyboardType: keyboardType,
         style: const TextStyle(color: Colors.white),
         decoration: InputDecoration(
           hintText: hint,
@@ -277,7 +280,8 @@ class _LoginPageState extends State<LoginPage> {
           prefixIcon: Icon(prefixIcon, color: Colors.grey, size: 20),
           suffixIcon: suffixIcon,
           border: InputBorder.none,
-          contentPadding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
+          contentPadding:
+              const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
         ),
       ),
     );

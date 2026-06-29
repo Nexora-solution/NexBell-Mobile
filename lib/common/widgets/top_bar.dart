@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../services/pending_notification_store.dart';
 import '../utils/constants.dart';
 
 class NexBellTopBar extends StatelessWidget implements PreferredSizeWidget {
@@ -6,6 +7,8 @@ class NexBellTopBar extends StatelessWidget implements PreferredSizeWidget {
   final bool isSettings;
   final VoidCallback? onProfileTap;
   final VoidCallback? onLogoTap;
+  final VoidCallback? onNotificationsTap;
+  final String? initials;
 
   const NexBellTopBar({
     super.key,
@@ -13,6 +16,8 @@ class NexBellTopBar extends StatelessWidget implements PreferredSizeWidget {
     this.isSettings = false,
     this.onProfileTap,
     this.onLogoTap,
+    this.onNotificationsTap,
+    this.initials,
   });
 
   @override
@@ -37,7 +42,7 @@ class NexBellTopBar extends StatelessWidget implements PreferredSizeWidget {
                   ),
                   const SizedBox(width: 8),
                   Text(
-                    'NEXBELL',
+                    'Nexora',
                     style: TextStyle(
                       fontFamily: AppFonts.headline,
                       fontSize: 22,
@@ -50,24 +55,65 @@ class NexBellTopBar extends StatelessWidget implements PreferredSizeWidget {
               ),
             ),
           ),
-          // Profile Avatar
-          GestureDetector(
-            onTap: isSettings ? null : onProfileTap,
-            child: Opacity(
-              opacity: isSettings ? 0.5 : 1.0,
-              child: CircleAvatar(
-                radius: 18,
-                backgroundColor: AppColors.primary,
-                child: const Text(
-                  'JD',
-                  style: TextStyle(
-                    color: AppColors.neutral,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 14,
+          Row(
+            children: [
+              ValueListenableBuilder<PendingVisitNotification?>(
+                valueListenable: PendingNotificationStore.current,
+                builder: (context, pending, _) {
+                  return GestureDetector(
+                    onTap: onNotificationsTap,
+                    child: Stack(
+                      clipBehavior: Clip.none,
+                      children: [
+                        const Padding(
+                          padding: EdgeInsets.all(4),
+                          child: Icon(
+                            Icons.notifications_none_rounded,
+                            color: AppColors.primary,
+                            size: 26,
+                          ),
+                        ),
+                        if (pending != null)
+                          Positioned(
+                            right: 2,
+                            top: 2,
+                            child: Container(
+                              width: 10,
+                              height: 10,
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFE57373),
+                                shape: BoxShape.circle,
+                                border: Border.all(
+                                    color: AppColors.background, width: 1.5),
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
+                  );
+                },
+              ),
+              const SizedBox(width: 14),
+              // Profile Avatar
+              GestureDetector(
+                onTap: isSettings ? null : onProfileTap,
+                child: Opacity(
+                  opacity: isSettings ? 0.5 : 1.0,
+                  child: CircleAvatar(
+                    radius: 18,
+                    backgroundColor: AppColors.primary,
+                    child: Text(
+                      (initials == null || initials!.isEmpty) ? '?' : initials!,
+                      style: const TextStyle(
+                        color: AppColors.neutral,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 14,
+                      ),
+                    ),
                   ),
                 ),
               ),
-            ),
+            ],
           ),
         ],
       ),

@@ -48,9 +48,14 @@ class ActivityItemCard extends StatelessWidget {
           children: [
             CircleAvatar(
               radius: 24,
-              backgroundColor: Colors.grey[800],
+              backgroundColor: AppColors.primary.withOpacity(0.18),
               backgroundImage: imageUrl != null ? NetworkImage(imageUrl!) : null,
-              child: imageUrl == null ? const Icon(Icons.person, color: Colors.white54) : null,
+              child: imageUrl == null
+                  ? Text(
+                      visitorName.trim().isEmpty ? '?' : visitorName.trim()[0].toUpperCase(),
+                      style: const TextStyle(color: AppColors.primary, fontWeight: FontWeight.bold),
+                    )
+                  : null,
             ),
             const SizedBox(width: 12),
             Expanded(
@@ -104,17 +109,17 @@ class ActivityItemCard extends StatelessWidget {
     switch (status) {
       case VisitStatus.approved:
         color = AppColors.primary;
-        label = 'Approved';
+        label = 'Aprobado';
         icon = Icons.check_circle_outline;
         break;
       case VisitStatus.rejected:
         color = Colors.redAccent;
-        label = 'Rejected';
+        label = 'Rechazado';
         icon = Icons.cancel_outlined;
         break;
       case VisitStatus.missed:
         color = Colors.orangeAccent;
-        label = 'Not attended';
+        label = 'No atendido';
         icon = Icons.error_outline;
         break;
     }
