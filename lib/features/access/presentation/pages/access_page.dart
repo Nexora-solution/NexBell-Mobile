@@ -3,8 +3,16 @@ import '../../../../common/utils/constants.dart';
 import '../widgets/access_toggles.dart';
 import '../widgets/visitor_form.dart';
 
-class AccessPage extends StatelessWidget {
+class AccessPage extends StatefulWidget {
   const AccessPage({super.key});
+
+  @override
+  State<AccessPage> createState() => _AccessPageState();
+}
+
+class _AccessPageState extends State<AccessPage> {
+  final GlobalKey<VisitorFormState> _formKey = GlobalKey<VisitorFormState>();
+  bool _isSubmitting = false;
 
   @override
   Widget build(BuildContext context) {
@@ -18,16 +26,17 @@ class AccessPage extends StatelessWidget {
             const Padding(
               padding: EdgeInsets.only(top: 24.0, bottom: 8.0),
               child: Text(
-                'Visitor Access',
+                'REGISTRO DE VISITANTES',
                 style: TextStyle(
                   fontFamily: AppFonts.headline,
-                  fontSize: 32,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 24,
                   color: Colors.white,
                 ),
               ),
             ),
             const Text(
-              'Configure a pre-authorization to speed up entry to the residence.',
+              'Ingresa la información necesaria de tu visita, te avisaremos cuando llegue.',
               style: TextStyle(
                 fontFamily: AppFonts.body,
                 fontSize: 14,
@@ -35,7 +44,10 @@ class AccessPage extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 32),
-            const VisitorForm(),
+            VisitorForm(
+              key: _formKey,
+              onSubmittingChanged: (v) => setState(() => _isSubmitting = v),
+            ),
             const SizedBox(height: 16),
             const AccessToggles(),
             const SizedBox(height: 24),
@@ -52,7 +64,7 @@ class AccessPage extends StatelessWidget {
                   SizedBox(width: 12),
                   Expanded(
                     child: Text(
-                      'The doorman will receive this information automatically to speed up entry.',
+                      'El portero recibirá esta información automáticamente para agilizar el ingreso.',
                       style: TextStyle(
                         color: Colors.white70,
                         fontSize: 12,
@@ -62,6 +74,42 @@ class AccessPage extends StatelessWidget {
                     ),
                   ),
                 ],
+              ),
+            ),
+            const SizedBox(height: 32),
+            SizedBox(
+              width: double.infinity,
+              height: 56,
+              child: ElevatedButton(
+                onPressed: _isSubmitting ? null : () => _formKey.currentState?.submit(),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.primary,
+                  foregroundColor: AppColors.neutral,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(28),
+                  ),
+                ),
+                child: _isSubmitting
+                    ? const SizedBox(
+                        height: 24,
+                        width: 24,
+                        child: CircularProgressIndicator(color: AppColors.neutral, strokeWidth: 2),
+                      )
+                    : const Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Text(
+                            'CREAR VISITA',
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                              fontFamily: AppFonts.body,
+                            ),
+                          ),
+                          SizedBox(width: 8),
+                          Icon(Icons.shield_outlined, size: 20),
+                        ],
+                      ),
               ),
             ),
             const SizedBox(height: 40),

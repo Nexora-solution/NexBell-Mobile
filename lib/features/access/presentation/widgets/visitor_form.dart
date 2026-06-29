@@ -1,28 +1,84 @@
 import 'dart:convert';
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 import '../../../../common/utils/constants.dart';
 import '../../../../common/utils/api_client.dart';
 import '../../../auth/presentation/pages/login_page.dart';
 
+/// Visitor fields card (photo, name, DNI) plus the arrival date/time fields.
+/// Submission is triggered externally (see [VisitorFormState.submit]) so the
+/// "CREAR VISITA" button can live at the bottom of the page, after the
+/// recurrence section, instead of being embedded in this card.
 class VisitorForm extends StatefulWidget {
-  const VisitorForm({super.key});
+  final ValueChanged<bool>? onSubmittingChanged;
+
+  const VisitorForm({super.key, this.onSubmittingChanged});
 
   @override
-  State<VisitorForm> createState() => _VisitorFormState();
+  State<VisitorForm> createState() => VisitorFormState();
 }
 
-class _VisitorFormState extends State<VisitorForm> {
+class VisitorFormState extends State<VisitorForm> {
   final TextEditingController _nameController = TextEditingController();
   final TextEditingController _dniController = TextEditingController();
   DateTime? _selectedDate;
   TimeOfDay? _selectedTime;
   bool _isSubmitting = false;
+  Uint8List? _photoBytes;
+  String? _photoBase64;
+
+  final ImagePicker _picker = ImagePicker();
 
   @override
   void dispose() {
     _nameController.dispose();
     _dniController.dispose();
     super.dispose();
+  }
+
+  Future<void> _pickPhoto() async {
+    final source = await showModalBottomSheet<ImageSource>(
+      context: context,
+      backgroundColor: AppColors.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.photo_camera_outlined, color: AppColors.primary),
+              title: const Text('Tomar foto', style: TextStyle(color: Colors.white, fontFamily: AppFonts.body)),
+              onTap: () => Navigator.pop(context, ImageSource.camera),
+            ),
+            ListTile(
+              leading: const Icon(Icons.photo_library_outlined, color: AppColors.primary),
+              title: const Text('Elegir de galería', style: TextStyle(color: Colors.white, fontFamily: AppFonts.body)),
+              onTap: () => Navigator.pop(context, ImageSource.gallery),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (source == null) return;
+
+    try {
+      final picked = await _picker.pickImage(source: source, maxWidth: 800, imageQuality: 80);
+      if (picked == null) return;
+      final bytes = await picked.readAsBytes();
+      setState(() {
+        _photoBytes = bytes;
+        _photoBase64 = 'data:image/jpeg;base64,${base64Encode(bytes)}';
+      });
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('No se pudo acceder a la cámara/galería: $e')),
+        );
+      }
+    }
   }
 
   Future<void> _selectDate(BuildContext context) async {
@@ -96,22 +152,31 @@ class _VisitorFormState extends State<VisitorForm> {
     } catch (_) {}
   }
 
-  Future<void> _submit() async {
+  void _setSubmitting(bool value) {
+    setState(() => _isSubmitting = value);
+    widget.onSubmittingChanged?.call(value);
+  }
+
+  bool get isSubmitting => _isSubmitting;
+
+  /// Validates and creates the pre-registered visit. Called by the page-level
+  /// "CREAR VISITA" button.
+  Future<void> submit() async {
     final name = _nameController.text.trim();
     if (name.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please enter the visitor name')),
+        const SnackBar(content: Text('Ingresa el nombre del visitante')),
       );
       return;
     }
     if (_selectedDate == null || _selectedTime == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please select arrival date and time')),
+        const SnackBar(content: Text('Selecciona fecha y hora de llegada')),
       );
       return;
     }
 
-    setState(() => _isSubmitting = true);
+    _setSubmitting(true);
 
     try {
       int? residentId = await ApiClient.getResidentId();
@@ -161,6 +226,7 @@ class _VisitorFormState extends State<VisitorForm> {
         'residentId': residentId,
         'visitorName': name,
         'visitorDocument': _dniController.text.trim(),
+        'visitorPhotoUrl': _photoBase64,
         'expectedAt': expectedAtStr,
       });
 
@@ -168,7 +234,7 @@ class _VisitorFormState extends State<VisitorForm> {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
-              content: Text('Pre-authorization created successfully'),
+              content: Text('Visita creada correctamente'),
               backgroundColor: AppColors.primary,
             ),
           );
@@ -177,6 +243,8 @@ class _VisitorFormState extends State<VisitorForm> {
           setState(() {
             _selectedDate = null;
             _selectedTime = null;
+            _photoBytes = null;
+            _photoBase64 = null;
           });
         }
       } else {
@@ -189,11 +257,11 @@ class _VisitorFormState extends State<VisitorForm> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Connection error: $e')),
+          SnackBar(content: Text('Error de conexión: $e')),
         );
       }
     } finally {
-      if (mounted) setState(() => _isSubmitting = false);
+      if (mounted) _setSubmitting(false);
     }
   }
 
@@ -207,30 +275,67 @@ class _VisitorFormState extends State<VisitorForm> {
             color: AppColors.surface,
             borderRadius: BorderRadius.circular(24),
           ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              _buildFieldLabel('Visitor'),
-              TextField(
-                controller: _nameController,
-                style: const TextStyle(color: Colors.white),
-                decoration: const InputDecoration(
-                  hintText: 'e.g. Roberto Garcia',
-                  hintStyle: TextStyle(color: Colors.white24),
-                  enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: Colors.white12)),
-                  focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: AppColors.primary)),
+              GestureDetector(
+                onTap: _pickPhoto,
+                child: Stack(
+                  children: [
+                    CircleAvatar(
+                      radius: 36,
+                      backgroundColor: Colors.black26,
+                      backgroundImage: _photoBytes != null ? MemoryImage(_photoBytes!) : null,
+                      child: _photoBytes == null
+                          ? const Icon(Icons.camera_alt_outlined, color: Colors.white54, size: 28)
+                          : null,
+                    ),
+                    Positioned(
+                      right: 0,
+                      bottom: 0,
+                      child: Container(
+                        padding: const EdgeInsets.all(5),
+                        decoration: const BoxDecoration(
+                          color: AppColors.primary,
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(Icons.edit, color: AppColors.neutral, size: 13),
+                      ),
+                    ),
+                  ],
                 ),
               ),
-              const SizedBox(height: 20),
-              _buildFieldLabel('DNI'),
-              TextField(
-                controller: _dniController,
-                style: const TextStyle(color: Colors.white),
-                decoration: const InputDecoration(
-                  hintText: 'Identity Document',
-                  hintStyle: TextStyle(color: Colors.white24),
-                  enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: Colors.white12)),
-                  focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: AppColors.primary)),
+              const SizedBox(width: 20),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _buildFieldLabel('Nombre del Visitante'),
+                    TextField(
+                      controller: _nameController,
+                      style: const TextStyle(color: Colors.white),
+                      decoration: const InputDecoration(
+                        hintText: 'Ej. Roberto García',
+                        hintStyle: TextStyle(color: Colors.white24),
+                        isDense: true,
+                        enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: Colors.white12)),
+                        focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: AppColors.primary)),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    _buildFieldLabel('DNI'),
+                    TextField(
+                      controller: _dniController,
+                      style: const TextStyle(color: Colors.white),
+                      decoration: const InputDecoration(
+                        hintText: 'Documento de identidad',
+                        hintStyle: TextStyle(color: Colors.white24),
+                        isDense: true,
+                        enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: Colors.white12)),
+                        focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: AppColors.primary)),
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ],
@@ -249,7 +354,7 @@ class _VisitorFormState extends State<VisitorForm> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    _buildFieldLabel('Arrival Date'),
+                    _buildFieldLabel('Fecha de llegada'),
                     const SizedBox(height: 8),
                     GestureDetector(
                       onTap: () => _selectDate(context),
@@ -264,8 +369,8 @@ class _VisitorFormState extends State<VisitorForm> {
                           children: [
                             Text(
                               _selectedDate == null
-                                  ? 'mm/dd/yyyy'
-                                  : '${_selectedDate!.month}/${_selectedDate!.day}/${_selectedDate!.year}',
+                                  ? 'dd/mm/yyyy'
+                                  : '${_selectedDate!.day}/${_selectedDate!.month}/${_selectedDate!.year}',
                               style: TextStyle(
                                 color: _selectedDate == null ? Colors.white24 : Colors.white,
                               ),
@@ -283,7 +388,7 @@ class _VisitorFormState extends State<VisitorForm> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    _buildFieldLabel('Approx. Time'),
+                    _buildFieldLabel('Hora aproximada'),
                     const SizedBox(height: 8),
                     GestureDetector(
                       onTap: () => _selectTime(context),
@@ -297,7 +402,7 @@ class _VisitorFormState extends State<VisitorForm> {
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
                             Text(
-                              _selectedTime == null ? '-- : --' : _selectedTime!.format(context),
+                              _selectedTime == null ? '--:--' : _selectedTime!.format(context),
                               style: TextStyle(
                                 color: _selectedTime == null ? Colors.white24 : Colors.white,
                               ),
@@ -311,42 +416,6 @@ class _VisitorFormState extends State<VisitorForm> {
                 ),
               ),
             ],
-          ),
-        ),
-        const SizedBox(height: 32),
-        SizedBox(
-          width: double.infinity,
-          height: 56,
-          child: ElevatedButton(
-            onPressed: _isSubmitting ? null : _submit,
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.primary,
-              foregroundColor: AppColors.neutral,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(28),
-              ),
-            ),
-            child: _isSubmitting
-                ? const SizedBox(
-                    height: 24,
-                    width: 24,
-                    child: CircularProgressIndicator(color: AppColors.neutral, strokeWidth: 2),
-                  )
-                : const Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Text(
-                        'Generate Pre-authorization',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                          fontFamily: AppFonts.body,
-                        ),
-                      ),
-                      SizedBox(width: 8),
-                      Icon(Icons.shield_outlined, size: 20),
-                    ],
-                  ),
           ),
         ),
       ],

@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'common/utils/constants.dart';
 import 'common/services/push_notification_service.dart';
-import 'features/auth/presentation/pages/login_page.dart';
+import 'features/onboarding/presentation/pages/splash_page.dart';
 
 final navigatorKey = GlobalKey<NavigatorState>();
 
@@ -48,8 +48,8 @@ class MyApp extends StatelessWidget {
           labelSmall: TextStyle(fontFamily: AppFonts.label),
         ),
       ),
-      // App starts on LoginPage
-      home: const LoginPage(),
+      // App starts on the brand splash, then routes to home or landing.
+      home: const SplashPage(),
     );
   }
 }

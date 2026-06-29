@@ -1,6 +1,7 @@
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
 import '../utils/api_client.dart';
+import 'pending_notification_store.dart';
 import '../../features/attend/presentation/pages/attend_page.dart';
 
 /// Must be a top-level (or static) function — required by firebase_messaging
@@ -64,6 +65,16 @@ class PushNotificationService {
     // resident's own pre-registered visitor) — tells AttendVisitPage which
     // set of backend endpoints to call for this id.
     final visitType = message.data['type'] ?? 'VISIT_REQUEST';
+    final visitorName = message.data['visitorName'] ?? message.notification?.title;
+
+    // Recorded so the bell badge / Notifications screen can still surface
+    // this if the resident doesn't act on the live push right away.
+    PendingNotificationStore.set(PendingVisitNotification(
+      visitId: id,
+      visitType: visitType,
+      visitorName: visitorName,
+      receivedAt: DateTime.now(),
+    ));
 
     final navigator = _navigatorKey?.currentState;
     if (navigator == null) return;

@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import '../../../../common/utils/constants.dart';
 import '../../../../common/utils/api_client.dart';
 import '../../../../common/config/api_config.dart';
+import '../../../../common/services/pending_notification_store.dart';
 import '../widgets/mjpeg_view.dart';
 
 class AttendVisitPage extends StatefulWidget {
@@ -120,6 +121,9 @@ class _AttendVisitPageState extends State<AttendVisitPage> {
           : await ApiClient.post(path, body: {'decision': decision});
 
       if (response.statusCode == 200) {
+        if (PendingNotificationStore.current.value?.visitId == widget.visitId) {
+          PendingNotificationStore.clear();
+        }
         if (mounted) {
           setState(() => _decisionResult = decision);
           // Show the confirmation screen briefly, then return to the home screen.
