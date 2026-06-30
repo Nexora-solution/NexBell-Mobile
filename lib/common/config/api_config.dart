@@ -5,7 +5,9 @@ const String _productionBackend = 'https://nexbell-webservices.onrender.com';
 
 // Para desarrollo local, cambia _useProduction a false y ajusta _lanBackendIp.
 const bool _useProduction = true;
-const String _lanBackendIp = '192.168.1.100';
+// IP de la laptop que corre el Edge Service en la red WiFi/hotspot de la demo.
+// El video en vivo y el audio salen de aquí (LAN), no del backend en la nube.
+const String _lanBackendIp = '10.219.217.145';
 
 String apiBase() {
   if (_useProduction) return _productionBackend;
