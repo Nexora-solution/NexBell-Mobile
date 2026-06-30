@@ -297,6 +297,7 @@ class _ManageProfilePageState extends State<ManageProfilePage> {
                       borderRadius: BorderRadius.circular(20),
                     ),
                     child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
                         _editableRow('NOMBRE COMPLETO', _nameController, _name),
                         const Divider(color: Colors.white10, height: 28),
@@ -336,7 +337,7 @@ class _ManageProfilePageState extends State<ManageProfilePage> {
                 style: const TextStyle(color: Colors.white, fontSize: 16, fontFamily: AppFonts.body),
                 decoration: const InputDecoration(
                   isDense: true,
-                  contentPadding: EdgeInsets.symmetric(vertical: 4),
+                  contentPadding: EdgeInsets.only(bottom: 6),
                   enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: Colors.white24)),
                   focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: AppColors.primary)),
                 ),

@@ -8,11 +8,13 @@ import '../widgets/mini_calendar.dart';
 class DashboardPage extends StatefulWidget {
   final VoidCallback onPreAuthorize;
   final VoidCallback onSeeAllVisits;
+  final int refreshKey;
 
   const DashboardPage({
     super.key,
     required this.onPreAuthorize,
     required this.onSeeAllVisits,
+    this.refreshKey = 0,
   });
 
   @override
@@ -38,6 +40,14 @@ class _DashboardPageState extends State<DashboardPage> {
     _selectedDay = DateTime(now.year, now.month, now.day);
     _fetchProfile();
     _fetchVisits();
+  }
+
+  @override
+  void didUpdateWidget(DashboardPage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.refreshKey != widget.refreshKey) {
+      _fetchVisits();
+    }
   }
 
   Future<void> _fetchProfile() async {
@@ -74,7 +84,9 @@ class _DashboardPageState extends State<DashboardPage> {
   Future<void> _fetchVisits() async {
     try {
       final myResidentId = await ApiClient.getResidentId();
-      final response = await ApiClient.get('/api/intercom/pre-registered-visits');
+      // Filtra en el backend por residente; el filtro local queda de respaldo.
+      final query = myResidentId != null ? '?residentId=$myResidentId' : '';
+      final response = await ApiClient.get('/api/intercom/pre-registered-visits$query');
       if (response.statusCode == 200) {
         final List<dynamic> records = jsonDecode(response.body);
         final mine = records

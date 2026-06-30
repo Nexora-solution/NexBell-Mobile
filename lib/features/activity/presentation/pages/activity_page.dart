@@ -16,10 +16,6 @@ class _ActivityPageState extends State<ActivityPage> {
   bool _isLoading = true;
   String? _error;
   List<Map<String, dynamic>> _records = [];
-  // 'all' | 'delivery' | 'personal' — best-effort mapping from the backend's
-  // 'type' field (pre-registered visits = Personal; everything else = Delivery)
-  // until the backend models proper visit categories.
-  String _filter = 'all';
 
   @override
   void initState() {
@@ -29,14 +25,23 @@ class _ActivityPageState extends State<ActivityPage> {
 
   Future<void> _fetchActivity() async {
     try {
-      final userId = await ApiClient.getUserId() ?? 0;
-      final response = await ApiClient.get('/api/audit/access-records/resident/$userId');
+      // El historial muestra las visitas pre-registradas del residente que ya
+      // fueron decididas (aprobadas/rechazadas). Es la misma fuente que el
+      // calendario de inicio; las pendientes se filtran en _showRecord.
+      final myResidentId = await ApiClient.getResidentId();
+      // El backend filtra por residente (?residentId=) para que un residente
+      // nunca reciba las visitas de otro; el filtro local es solo un respaldo.
+      final query = myResidentId != null ? '?residentId=$myResidentId' : '';
+      final response = await ApiClient.get('/api/intercom/pre-registered-visits$query');
       if (response.statusCode == 200) {
         final List<dynamic> data = jsonDecode(response.body);
-        final records = List<Map<String, dynamic>>.from(data.cast<Map<String, dynamic>>());
+        final records = data
+            .cast<Map<String, dynamic>>()
+            .where((r) => myResidentId == null || r['residentId'] == myResidentId)
+            .toList();
         records.sort((a, b) {
-          final da = ApiClient.parseDateTime(a['createdAt']);
-          final db = ApiClient.parseDateTime(b['createdAt']);
+          final da = ApiClient.parseDateTime(a['expectedAt']);
+          final db = ApiClient.parseDateTime(b['expectedAt']);
           if (da == null || db == null) return 0;
           return db.compareTo(da);
         });
@@ -68,7 +73,7 @@ class _ActivityPageState extends State<ActivityPage> {
     };
 
     for (final r in records) {
-      final dt = ApiClient.parseDateTime(r['createdAt']);
+      final dt = ApiClient.parseDateTime(r['expectedAt']);
       if (dt == null) continue;
       final day = DateTime(dt.year, dt.month, dt.day);
       if (day == today) {
@@ -86,8 +91,8 @@ class _ActivityPageState extends State<ActivityPage> {
     return groups;
   }
 
-  VisitStatus _toVisitStatus(String? decision) {
-    switch (decision) {
+  VisitStatus _toVisitStatus(String? status) {
+    switch ((status ?? '').toUpperCase()) {
       case 'APPROVED': return VisitStatus.approved;
       case 'REJECTED': return VisitStatus.rejected;
       default: return VisitStatus.missed;
@@ -99,48 +104,16 @@ class _ActivityPageState extends State<ActivityPage> {
     return '${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
   }
 
-  // History only shows visits that were actually decided — pending/undecided
-  // records never appear here.
-  bool _isDecided(Map<String, dynamic> record) {
-    final decision = record['decision'] as String?;
-    return decision == 'APPROVED' || decision == 'REJECTED';
-  }
-
-  bool _matchesFilter(Map<String, dynamic> record) {
-    if (!_isDecided(record)) return false;
-    if (_filter == 'all') return true;
-    final type = record['type'] as String? ?? 'walk-in';
-    final isPersonal = type == 'pre-registered';
-    return _filter == 'personal' ? isPersonal : !isPersonal;
-  }
-
-  Widget _filterChip(String label, String value) {
-    final selected = _filter == value;
-    return GestureDetector(
-      onTap: () => setState(() => _filter = value),
-      child: Container(
-        margin: const EdgeInsets.only(right: 10),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        decoration: BoxDecoration(
-          color: selected ? AppColors.primary : AppColors.surface,
-          borderRadius: BorderRadius.circular(20),
-        ),
-        child: Text(
-          label,
-          style: TextStyle(
-            color: selected ? AppColors.neutral : Colors.white70,
-            fontWeight: FontWeight.bold,
-            fontSize: 13,
-            fontFamily: AppFonts.body,
-          ),
-        ),
-      ),
-    );
+  // History only shows visits that were actually decided (approved/rejected).
+  // Pending/undecided records never appear here — those live only on the home calendar.
+  bool _showRecord(Map<String, dynamic> record) {
+    final status = (record['status'] as String? ?? '').toUpperCase();
+    return status == 'APPROVED' || status == 'REJECTED';
   }
 
   @override
   Widget build(BuildContext context) {
-    final grouped = _groupByDate(_records.where(_matchesFilter).toList());
+    final grouped = _groupByDate(_records.where(_showRecord).toList());
     return Scaffold(
       backgroundColor: AppColors.background,
       body: RefreshIndicator(
@@ -163,13 +136,6 @@ class _ActivityPageState extends State<ActivityPage> {
                     color: Colors.white,
                   ),
                 ),
-              ),
-              Row(
-                children: [
-                  _filterChip('Todos', 'all'),
-                  _filterChip('Delivery', 'delivery'),
-                  _filterChip('Personal', 'personal'),
-                ],
               ),
               const SizedBox(height: 8),
               if (_isLoading)
@@ -206,15 +172,18 @@ class _ActivityPageState extends State<ActivityPage> {
                     children: [
                       ActivitySectionHeader(title: entry.key),
                       ...entry.value.map((record) {
-                        final dt = ApiClient.parseDateTime(record['createdAt']);
+                        final dt = ApiClient.parseDateTime(record['expectedAt']);
                         final name = record['visitorName'] as String? ?? 'Visitante';
-                        final decision = record['decision'] as String?;
-                        final type = record['type'] as String? ?? 'walk-in';
+                        final status = record['status'] as String?;
+                        final photo = record['visitorPhotoUrl'] as String? ?? '';
+                        final document = record['visitorDocument'] as String? ?? '';
                         return ActivityItemCard(
                           visitorName: name,
-                          category: type == 'pre-registered' ? 'Personal' : 'Delivery',
                           time: _formatTime(dt),
-                          status: _toVisitStatus(decision),
+                          status: _toVisitStatus(status),
+                          photoUrl: photo.isEmpty ? null : photo,
+                          document: document,
+                          scheduledAt: dt,
                         );
                       }),
                     ],

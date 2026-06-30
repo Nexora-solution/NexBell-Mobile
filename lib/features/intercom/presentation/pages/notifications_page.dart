@@ -21,11 +21,20 @@ class _NotificationsPageState extends State<NotificationsPage> {
   bool _unreadOnly = false;
   bool _isLoading = true;
   List<Map<String, dynamic>> _records = [];
+  // Visitas que están AHORA en la puerta esperando decisión, para este
+  // apartamento. Se consultan al backend para que aparezcan aunque la app
+  // estuviera cerrada o el residente haya borrado el push de la barra.
+  List<Map<String, dynamic>> _pendingVisits = [];
 
   @override
   void initState() {
     super.initState();
-    _fetchHistory();
+    _fetch();
+  }
+
+  Future<void> _fetch() async {
+    await Future.wait([_fetchHistory(), _fetchPending()]);
+    if (mounted) setState(() => _isLoading = false);
   }
 
   Future<void> _fetchHistory() async {
@@ -41,13 +50,38 @@ class _NotificationsPageState extends State<NotificationsPage> {
           if (da == null || db == null) return 0;
           return db.compareTo(da);
         });
-        if (mounted) setState(() { _records = records; _isLoading = false; });
-      } else {
-        if (mounted) setState(() => _isLoading = false);
+        if (mounted) setState(() => _records = records);
       }
-    } catch (_) {
-      if (mounted) setState(() => _isLoading = false);
-    }
+    } catch (_) {/* ignore */}
+  }
+
+  Future<void> _fetchPending() async {
+    try {
+      // Resolve the resident's apartment so we only show visits at THEIR door.
+      String myApt = '';
+      final me = await ApiClient.get('/api/iam/users/me');
+      if (me.statusCode == 200) {
+        final residentId = jsonDecode(me.body)['residentId'];
+        if (residentId != null) {
+          final res = await ApiClient.get('/api/directory/residents/$residentId');
+          if (res.statusCode == 200) {
+            myApt = jsonDecode(res.body)['apartmentCode'] as String? ?? '';
+          }
+        }
+      }
+      final apt = myApt.trim();
+      if (apt.isEmpty) { if (mounted) setState(() => _pendingVisits = []); return; }
+
+      final q = await ApiClient.get('/api/intercom/queue/pending');
+      if (q.statusCode == 200) {
+        final List<dynamic> items = jsonDecode(q.body);
+        final mine = items
+            .cast<Map<String, dynamic>>()
+            .where((it) => (it['apartmentCode']?.toString().trim() ?? '') == apt)
+            .toList();
+        if (mounted) setState(() => _pendingVisits = mine);
+      }
+    } catch (_) {/* ignore */}
   }
 
   Map<String, List<Map<String, dynamic>>> _groupByDate(List<Map<String, dynamic>> records) {
@@ -117,7 +151,7 @@ class _NotificationsPageState extends State<NotificationsPage> {
       ),
       body: RefreshIndicator(
         color: AppColors.primary,
-        onRefresh: _fetchHistory,
+        onRefresh: _fetch,
         child: SingleChildScrollView(
           physics: const AlwaysScrollableScrollPhysics(),
           padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
@@ -136,17 +170,42 @@ class _NotificationsPageState extends State<NotificationsPage> {
               ValueListenableBuilder<PendingVisitNotification?>(
                 valueListenable: PendingNotificationStore.current,
                 builder: (context, pending, _) {
-                  if (pending == null) {
-                    if (_unreadOnly) return const SizedBox.shrink();
-                    return const SizedBox.shrink();
+                  // Combina las visitas pendientes traídas del backend (para este
+                  // apartamento) con el push en memoria, sin duplicar.
+                  final cards = <Widget>[];
+                  final ids = _pendingVisits.map((v) => v['visitRequestId']).toSet();
+                  for (final v in _pendingVisits) {
+                    cards.add(_actionCard(
+                      name: v['visitorName'] as String? ?? 'Visitante',
+                      subtitle: 'Visita en puerta',
+                      onTap: () => Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => AttendVisitPage(
+                            visitId: v['visitRequestId'] as int,
+                            visitType: 'VISIT_REQUEST',
+                          ),
+                        ),
+                      ),
+                    ));
+                    cards.add(const SizedBox(height: 10));
                   }
+                  if (pending != null && !ids.contains(pending.visitId)) {
+                    cards.add(_actionCard(
+                      name: pending.visitorName ?? 'Visitante',
+                      subtitle: 'Visita en puerta · ${_relativeTime(pending.receivedAt)}',
+                      onTap: () => _openPending(pending),
+                    ));
+                    cards.add(const SizedBox(height: 10));
+                  }
+                  if (cards.isEmpty) return const SizedBox.shrink();
                   return Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       _sectionLabel('AHORA'),
                       const SizedBox(height: 10),
-                      _pendingCard(pending),
-                      const SizedBox(height: 24),
+                      ...cards,
+                      const SizedBox(height: 14),
                     ],
                   );
                 },
@@ -229,12 +288,12 @@ class _NotificationsPageState extends State<NotificationsPage> {
         ),
       );
 
-  Widget _pendingCard(PendingVisitNotification pending) {
-    final initials = (pending.visitorName ?? '?').trim().isEmpty
-        ? '?'
-        : pending.visitorName!.trim()[0].toUpperCase();
+  /// Tarjeta "ACCIÓN REQUERIDA" para una visita en la puerta. Al tocarla abre
+  /// la pantalla de video en vivo + decisión.
+  Widget _actionCard({required String name, required String subtitle, required VoidCallback onTap}) {
+    final initials = name.trim().isEmpty ? '?' : name.trim()[0].toUpperCase();
     return GestureDetector(
-      onTap: () => _openPending(pending),
+      onTap: onTap,
       child: Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
@@ -277,7 +336,7 @@ class _NotificationsPageState extends State<NotificationsPage> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        pending.visitorName ?? 'Visitante',
+                        name,
                         style: const TextStyle(
                           color: Colors.white,
                           fontWeight: FontWeight.bold,
@@ -285,7 +344,7 @@ class _NotificationsPageState extends State<NotificationsPage> {
                         ),
                       ),
                       Text(
-                        'Visita en puerta · ${_relativeTime(pending.receivedAt)}',
+                        subtitle,
                         style: const TextStyle(color: Colors.white60, fontSize: 12, fontFamily: AppFonts.label),
                       ),
                     ],

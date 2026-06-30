@@ -1,3 +1,4 @@
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import '../services/pending_notification_store.dart';
 import '../utils/constants.dart';
@@ -9,6 +10,7 @@ class NexBellTopBar extends StatelessWidget implements PreferredSizeWidget {
   final VoidCallback? onLogoTap;
   final VoidCallback? onNotificationsTap;
   final String? initials;
+  final Uint8List? photoBytes;
 
   const NexBellTopBar({
     super.key,
@@ -18,6 +20,7 @@ class NexBellTopBar extends StatelessWidget implements PreferredSizeWidget {
     this.onLogoTap,
     this.onNotificationsTap,
     this.initials,
+    this.photoBytes,
   });
 
   @override
@@ -102,14 +105,18 @@ class NexBellTopBar extends StatelessWidget implements PreferredSizeWidget {
                   child: CircleAvatar(
                     radius: 18,
                     backgroundColor: AppColors.primary,
-                    child: Text(
-                      (initials == null || initials!.isEmpty) ? '?' : initials!,
-                      style: const TextStyle(
-                        color: AppColors.neutral,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 14,
-                      ),
-                    ),
+                    backgroundImage: photoBytes != null ? MemoryImage(photoBytes!) : null,
+                    child: photoBytes == null
+                        ? Text(
+                            (initials == null || initials!.isEmpty) ? '?' : initials!,
+                            style: const TextStyle(
+                              color: AppColors.neutral,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 14,
+                              fontFamily: AppFonts.headline,
+                            ),
+                          )
+                        : null,
                   ),
                 ),
               ),

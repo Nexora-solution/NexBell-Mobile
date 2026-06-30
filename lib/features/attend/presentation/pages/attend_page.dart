@@ -46,8 +46,9 @@ class _AttendVisitPageState extends State<AttendVisitPage> {
   Future<void> _loadData() async {
     try {
       if (_isPreRegistered) {
-        // The camera is a single global feed — no per-visit stream lookup needed.
-        _streamUrl = '${apiBase()}/api/intercom/video-stream';
+        // The camera is a single global feed served by the Edge service on the
+        // LAN (same source the web uses), NOT the backend's dead MQTT path.
+        _streamUrl = '${edgeBase()}/video-stream';
 
         final detailResponse = await ApiClient.get('/api/intercom/pre-registered-visits/${widget.visitId}');
         if (detailResponse.statusCode == 200) {
@@ -57,13 +58,10 @@ class _AttendVisitPageState extends State<AttendVisitPage> {
           _visitorType = 'pre-registered';
         }
       } else {
-        // 1. Fetch streaming details
-        final streamResponse = await ApiClient.get('/api/intercom/visit-requests/${widget.visitId}/stream');
-        if (streamResponse.statusCode == 200) {
-          final streamData = jsonDecode(streamResponse.body);
-          final relativeUrl = streamData['streamUrl'] as String? ?? '';
-          _streamUrl = relativeUrl.startsWith('http') ? relativeUrl : '${apiBase()}$relativeUrl';
-        }
+        // 1. Live video: single global camera feed from the Edge service (same
+        // source as the web). The backend's per-visit stream path is the old
+        // MQTT-based feed and no longer carries frames.
+        _streamUrl = '${edgeBase()}/video-stream';
 
         // 2. Fetch visitor info from pending queue to resolve DNI if possible
         final queueResponse = await ApiClient.get('/api/intercom/queue/pending');
