@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import '../../common/utils/constants.dart';
 import '../../common/utils/api_client.dart';
@@ -19,34 +20,53 @@ class MainScreen extends StatefulWidget {
 // Tab order matches the bottom nav in the mockup: Inicio, Actividad, Visitas, Perfil.
 class _MainScreenState extends State<MainScreen> {
   int _selectedIndex = 0;
+  int _dashboardRefreshKey = 0;
   String? _initials;
+  Uint8List? _photoBytes;
 
   @override
   void initState() {
     super.initState();
-    _fetchInitials();
+    _fetchProfile();
   }
 
-  Future<void> _fetchInitials() async {
+  Future<void> _fetchProfile() async {
     try {
       final res = await ApiClient.get('/api/iam/users/me');
       if (res.statusCode != 200) return;
       final data = jsonDecode(res.body);
       final name = (data['fullName'] as String? ?? '').trim();
-      if (name.isEmpty) return;
-      final parts = name.split(RegExp(r'\s+'));
-      final initials = parts.length > 1
-          ? '${parts[0][0]}${parts[1][0]}'.toUpperCase()
-          : parts[0][0].toUpperCase();
-      if (mounted) setState(() => _initials = initials);
-    } catch (_) {
-      // No photo upload support yet, so this just falls back to '?' in the
-      // top bar — same behavior the web uses when there's no avatar on file.
-    }
+      String? initials;
+      if (name.isNotEmpty) {
+        final parts = name.split(RegExp(r'\s+'));
+        initials = parts.length > 1
+            ? '${parts[0][0]}${parts[1][0]}'.toUpperCase()
+            : parts[0][0].toUpperCase();
+      }
+      // Fetch photo from resident profile if available
+      Uint8List? photoBytes;
+      final residentId = data['residentId'];
+      if (residentId != null) {
+        final resRes = await ApiClient.get('/api/directory/residents/$residentId');
+        if (resRes.statusCode == 200) {
+          final resData = jsonDecode(resRes.body);
+          final photoUrl = resData['photoUrl'] as String? ?? '';
+          if (photoUrl.contains(',')) {
+            try {
+              photoBytes = base64Decode(photoUrl.split(',').last);
+            } catch (_) {}
+          }
+        }
+      }
+      if (mounted) setState(() { _initials = initials; _photoBytes = photoBytes; });
+    } catch (_) {}
   }
 
   void _onItemTapped(int index) {
     setState(() {
+      if (index == 0 && _selectedIndex != 0) {
+        _dashboardRefreshKey++;
+      }
       _selectedIndex = index;
     });
   }
@@ -58,6 +78,7 @@ class _MainScreenState extends State<MainScreen> {
 
     final List<Widget> pages = [
       DashboardPage(
+        refreshKey: _dashboardRefreshKey,
         onPreAuthorize: () => _onItemTapped(2),
         onSeeAllVisits: () => _onItemTapped(1),
       ),
@@ -72,6 +93,7 @@ class _MainScreenState extends State<MainScreen> {
         isDashboard: isDashboard,
         isSettings: isSettings,
         initials: _initials,
+        photoBytes: _photoBytes,
         onLogoTap: () => _onItemTapped(0),
         onProfileTap: () => _onItemTapped(3),
         onNotificationsTap: () => Navigator.push(
@@ -130,7 +152,7 @@ class _MainScreenState extends State<MainScreen> {
             Text(
               label,
               style: TextStyle(
-                color: isSelected ? Colors.white : AppColors.neutral,
+                color: isSelected ? AppColors.primary : AppColors.neutral,
                 fontSize: 12,
                 fontWeight: FontWeight.bold,
                 fontFamily: AppFonts.label,

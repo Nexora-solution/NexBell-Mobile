@@ -77,34 +77,81 @@ class ApiClient {
     return headers;
   }
 
-  static Future<http.Response> get(String path) async {
-    final baseUrl = apiBase();
-    final url = Uri.parse('$baseUrl$path');
-    final headers = await _getHeaders();
-    return http.get(url, headers: headers);
-  }
+  static Future<http.Response> get(String path) => _send('GET', path);
 
-  static Future<http.Response> post(String path, {Object? body}) async {
+  static Future<http.Response> post(String path, {Object? body}) =>
+      _send('POST', path, body: body);
+
+  static Future<http.Response> put(String path, {Object? body}) =>
+      _send('PUT', path, body: body);
+
+  static Future<http.Response> delete(String path) => _send('DELETE', path);
+
+  /// Single request dispatcher. The backend now enforces JWT, so a protected
+  /// endpoint returns 401 when the access token is expired/invalid. In that case
+  /// we try the refresh token once and replay the request. Auth/onboarding
+  /// endpoints are skipped to avoid loops (and they don't need a token anyway).
+  static Future<http.Response> _send(String method, String path,
+      {Object? body, bool isRetry = false}) async {
     final baseUrl = apiBase();
     final url = Uri.parse('$baseUrl$path');
     final headers = await _getHeaders();
     final bodyStr = body != null ? jsonEncode(body) : null;
-    return http.post(url, headers: headers, body: bodyStr);
+
+    http.Response res;
+    switch (method) {
+      case 'GET':
+        res = await http.get(url, headers: headers);
+        break;
+      case 'POST':
+        res = await http.post(url, headers: headers, body: bodyStr);
+        break;
+      case 'PUT':
+        res = await http.put(url, headers: headers, body: bodyStr);
+        break;
+      case 'DELETE':
+        res = await http.delete(url, headers: headers);
+        break;
+      default:
+        throw ArgumentError('Unsupported method $method');
+    }
+
+    final isAuthCall = path.startsWith('/api/iam/login') ||
+        path.startsWith('/api/iam/refresh') ||
+        path.startsWith('/api/onboarding');
+    if (res.statusCode == 401 && !isRetry && !isAuthCall) {
+      final refreshed = await _tryRefresh();
+      if (refreshed) {
+        return _send(method, path, body: body, isRetry: true);
+      }
+    }
+    return res;
   }
 
-  static Future<http.Response> put(String path, {Object? body}) async {
-    final baseUrl = apiBase();
-    final url = Uri.parse('$baseUrl$path');
-    final headers = await _getHeaders();
-    final bodyStr = body != null ? jsonEncode(body) : null;
-    return http.put(url, headers: headers, body: bodyStr);
-  }
-
-  static Future<http.Response> delete(String path) async {
-    final baseUrl = apiBase();
-    final url = Uri.parse('$baseUrl$path');
-    final headers = await _getHeaders();
-    return http.delete(url, headers: headers);
+  /// Exchanges the stored refresh token for a fresh access/refresh pair.
+  /// Returns true and persists the new tokens on success.
+  static Future<bool> _tryRefresh() async {
+    final refreshToken = await getRefreshToken();
+    if (refreshToken == null) return false;
+    try {
+      final url = Uri.parse('${apiBase()}/api/iam/refresh');
+      final res = await http.post(
+        url,
+        headers: {'Content-Type': 'application/json', 'Accept': 'application/json'},
+        body: jsonEncode({'refreshToken': refreshToken}),
+      );
+      if (res.statusCode == 200) {
+        final data = jsonDecode(res.body) as Map<String, dynamic>;
+        final newAccess = data['accessToken'] as String?;
+        final newRefresh = data['refreshToken'] as String?;
+        if (newAccess != null) await saveToken(newAccess);
+        if (newRefresh != null) await saveRefreshToken(newRefresh);
+        return newAccess != null;
+      }
+    } catch (_) {
+      // Network error or malformed body — treat as refresh failure.
+    }
+    return false;
   }
 
   /// Parse a LocalDateTime returned by Spring Boot (serialized as int array).
