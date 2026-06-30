@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "257916189825",
+    "project_id": "nexbell-31b26",
+    "storage_bucket": "nexbell-31b26.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:257916189825:android:57c1c19d04efadf40b6180",
+        "android_client_info": {
+          "package_name": "com.nexora.nexbell_mobile"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAHy3IUj18bKwx-XAiz_KRC3DSf1PZ1Ns8"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
