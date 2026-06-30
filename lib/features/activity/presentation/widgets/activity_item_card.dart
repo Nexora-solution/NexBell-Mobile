@@ -1,27 +1,31 @@
 import 'package:flutter/material.dart';
 import '../../../../common/utils/constants.dart';
+import '../../../../common/utils/image_utils.dart';
 import '../pages/visit_detail_page.dart';
 
 enum VisitStatus { approved, rejected, missed }
 
 class ActivityItemCard extends StatelessWidget {
   final String visitorName;
-  final String category;
   final String time;
   final VisitStatus status;
-  final String? imageUrl;
+  final String? photoUrl;
+  final String document;
+  final DateTime? scheduledAt;
 
   const ActivityItemCard({
     super.key,
     required this.visitorName,
-    required this.category,
     required this.time,
     required this.status,
-    this.imageUrl,
+    this.photoUrl,
+    this.document = '',
+    this.scheduledAt,
   });
 
   @override
   Widget build(BuildContext context) {
+    final image = avatarImageProvider(photoUrl);
     return GestureDetector(
       onTap: () {
         Navigator.push(
@@ -29,10 +33,10 @@ class ActivityItemCard extends StatelessWidget {
           MaterialPageRoute(
             builder: (context) => VisitDetailPage(
               visitorName: visitorName,
-              category: category,
-              time: time,
               status: status,
-              imageUrl: imageUrl,
+              photoUrl: photoUrl,
+              document: document,
+              scheduledAt: scheduledAt,
             ),
           ),
         );
@@ -48,9 +52,14 @@ class ActivityItemCard extends StatelessWidget {
           children: [
             CircleAvatar(
               radius: 24,
-              backgroundColor: Colors.grey[800],
-              backgroundImage: imageUrl != null ? NetworkImage(imageUrl!) : null,
-              child: imageUrl == null ? const Icon(Icons.person, color: Colors.white54) : null,
+              backgroundColor: AppColors.primary.withOpacity(0.18),
+              backgroundImage: image,
+              child: image == null
+                  ? Text(
+                      visitorName.trim().isEmpty ? '?' : visitorName.trim()[0].toUpperCase(),
+                      style: const TextStyle(color: AppColors.primary, fontWeight: FontWeight.bold),
+                    )
+                  : null,
             ),
             const SizedBox(width: 12),
             Expanded(
@@ -67,16 +76,7 @@ class ActivityItemCard extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: 4),
-                  Row(
-                    children: [
-                      _buildStatusIndicator(),
-                      const SizedBox(width: 8),
-                      Text(
-                        '•  $category',
-                        style: const TextStyle(color: Colors.grey, fontSize: 13),
-                      ),
-                    ],
-                  ),
+                  _buildStatusIndicator(),
                 ],
               ),
             ),
@@ -104,17 +104,17 @@ class ActivityItemCard extends StatelessWidget {
     switch (status) {
       case VisitStatus.approved:
         color = AppColors.primary;
-        label = 'Approved';
+        label = 'Aprobado';
         icon = Icons.check_circle_outline;
         break;
       case VisitStatus.rejected:
         color = Colors.redAccent;
-        label = 'Rejected';
+        label = 'Rechazado';
         icon = Icons.cancel_outlined;
         break;
       case VisitStatus.missed:
         color = Colors.orangeAccent;
-        label = 'Not attended';
+        label = 'No atendido';
         icon = Icons.error_outline;
         break;
     }

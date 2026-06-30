@@ -40,6 +40,9 @@ dependencies:
   path_provider: ^2.1.5
   flutter_launcher_icons: ^0.14.4
   shared_preferences: ^2.5.4
+  firebase_core: ^3.8.0
+  firebase_messaging: ^15.1.5
+  image_picker: ^1.1.2
 
   # The following adds the Cupertino Icons font to your application.
   # Use with the CupertinoIcons class for iOS style icons.
@@ -48,6 +51,8 @@ dependencies:
 dev_dependencies:
   flutter_test:
     sdk: flutter
+  flutter_native_splash: ^2.4.1
+  image: ^4.0.0
 
   # The "flutter_lints" package below contains a set of recommended lints to
   # encourage good coding practices. The lint set provided by the package is
@@ -55,6 +60,19 @@ dev_dependencies:
   # package. See that file for information about deactivating specific lint
   # rules and activating additional ones.
   flutter_lints: ^5.0.0
+
+# Native startup splash (before Flutter loads). Logo on the brand-teal screen;
+# on Android 12+ the icon sits on a black squircle (matching the logo) so there
+# is no white border. Regenerate with: dart run flutter_native_splash:create
+flutter_native_splash:
+  color: "#7FE3DB"
+  image: assets/images/nexbell_splash_logo.png
+  android_12:
+    image: assets/images/nexbell_splash_logo.png
+    icon_background_color: "#000000"
+  android: true
+  ios: true
+  web: false
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec
@@ -70,11 +88,9 @@ flutter:
     - assets/images/
     - assets/fonts/
   fonts:
-    - family: EB Garamond
+    - family: Space Grotesk
       fonts:
-        - asset: assets/fonts/EBGaramond-VariableFont_wght.ttf
-        - asset: assets/fonts/EBGaramond-Italic-VariableFont_wght.ttf
-          style: italic
+        - asset: assets/fonts/SpaceGrotesk-VariableFont_wght.ttf
     - family: Geist
       fonts:
         - asset: assets/fonts/Geist-VariableFont_wght.ttf

@@ -1,3 +1,7 @@
+# Firebase credentials (real project config — do not commit)
+android/app/google-services.json
+ios/Runner/GoogleService-Info.plist
+
 # Miscellaneous
 *.class
 *.log

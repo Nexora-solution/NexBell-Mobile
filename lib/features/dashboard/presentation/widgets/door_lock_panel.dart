@@ -1,5 +1,8 @@
+import 'dart:async';
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import '../../../../common/utils/constants.dart';
+import '../../../../common/utils/api_client.dart';
 
 class DoorLockPanel extends StatefulWidget {
   const DoorLockPanel({super.key});
@@ -10,11 +13,76 @@ class DoorLockPanel extends StatefulWidget {
 
 class _DoorLockPanelState extends State<DoorLockPanel> {
   bool _isLocked = true;
+  bool _isOnline = true;
+  Timer? _pollingTimer;
 
-  void _toggleLock() {
-    setState(() {
-      _isLocked = !_isLocked;
+  @override
+  void initState() {
+    super.initState();
+    _fetchDoorStatus();
+    _pollingTimer = Timer.periodic(const Duration(seconds: 3), (timer) {
+      _fetchDoorStatus();
     });
+  }
+
+  @override
+  void dispose() {
+    _pollingTimer?.cancel();
+    super.dispose();
+  }
+
+  Future<void> _fetchDoorStatus() async {
+    try {
+      final response = await ApiClient.get('/api/security/door/status');
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        final status = data['status'] as String? ?? 'LOCKED';
+        final online = data['online'] as bool? ?? true;
+        if (mounted) {
+          setState(() {
+            _isLocked = (status == 'LOCKED');
+            _isOnline = online;
+          });
+        }
+      }
+    } catch (e) {
+      // Background polling: fail silently to avoid UI disruption
+    }
+  }
+
+  Future<void> _toggleLock() async {
+    final newLockedState = !_isLocked;
+    // Optimistic UI update
+    setState(() {
+      _isLocked = newLockedState;
+    });
+
+    try {
+      final endpoint = newLockedState ? '/api/security/door/lock' : '/api/security/door/unlock';
+      final response = await ApiClient.post(endpoint);
+
+      if (response.statusCode != 200) {
+        // Revert on failure
+        setState(() {
+          _isLocked = !newLockedState;
+        });
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Failed to update door status')),
+          );
+        }
+      }
+    } catch (e) {
+      // Revert on exception
+      setState(() {
+        _isLocked = !newLockedState;
+      });
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error communicating with door: $e')),
+        );
+      }
+    }
   }
 
   @override
@@ -62,7 +130,7 @@ class _DoorLockPanelState extends State<DoorLockPanel> {
             ),
             const SizedBox(height: 4),
             Text(
-              'MAIN DOOR • ONLINE',
+              'MAIN DOOR • ${_isOnline ? "ONLINE" : "OFFLINE"}',
               style: TextStyle(
                 color: _isLocked ? Colors.grey : AppColors.primary,
                 fontSize: 12,

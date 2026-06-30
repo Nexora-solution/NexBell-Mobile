@@ -6,13 +6,16 @@ class AppColors {
   static const Color tertiary = Color(0xFFFFB878);
   static const Color neutral = Color(0xFF1A1C1E);
   
-  static const Color background = Color(0xFF1A1C1E);
-  static const Color surface = Color(0xFF2C2E30);
+  static const Color background = Color(0xFF000000);
+  static const Color surface = Color(0xFF1A1C1E);
   static const Color selected = Color(0xFF407671);
 }
 
 class AppFonts {
-  static const String headline = 'Eb Garamond';
+  // Titles use Space Grotesk (bundled local font, declared in pubspec.yaml).
+  // Body and labels use Geist Regular. Both are real bundled families, so
+  // `const TextStyle(fontFamily: ...)` resolves them reliably offline.
+  static const String headline = 'Space Grotesk';
   static const String body = 'Geist';
   static const String label = 'Geist';
 }
