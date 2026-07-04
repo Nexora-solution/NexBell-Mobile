@@ -4,8 +4,8 @@ import 'package:flutter/foundation.dart' show kIsWeb, defaultTargetPlatform, Tar
 const String _productionBackend = 'https://nexbell-webservices.onrender.com';
 
 // Para desarrollo local, cambia _useProduction a false y ajusta _lanBackendIp.
-const bool _useProduction = true;
-const String _lanBackendIp = '192.168.1.45';
+const bool _useProduction = false;
+const String _lanBackendIp = '192.168.0.207'; // Use 10.0.2.2 for Android Emulator (change to e.g. 192.168.0.207 for physical devices)
 
 String apiBase() {
   if (_useProduction) return _productionBackend;

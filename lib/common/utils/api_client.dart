@@ -119,7 +119,7 @@ class ApiClient {
     final isAuthCall = path.startsWith('/api/iam/login') ||
         path.startsWith('/api/iam/refresh') ||
         path.startsWith('/api/onboarding');
-    if (res.statusCode == 401 && !isRetry && !isAuthCall) {
+    if ((res.statusCode == 401 || res.statusCode == 403) && !isRetry && !isAuthCall) {
       final refreshed = await _tryRefresh();
       if (refreshed) {
         return _send(method, path, body: body, isRetry: true);

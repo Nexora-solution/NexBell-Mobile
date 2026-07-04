@@ -3,10 +3,13 @@
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <!-- Required to take the visitor photo when registering a visit -->
     <uses-permission android:name="android.permission.CAMERA" />
+    <!-- Required to connect to local edge/backend server -->
+    <uses-permission android:name="android.permission.INTERNET" />
     <application
         android:label="Nexbell"
         android:name="${applicationName}"
-        android:icon="@mipmap/launcher_icon">
+        android:icon="@mipmap/launcher_icon"
+        android:usesCleartextTraffic="true">
         <activity
             android:name=".MainActivity"
             android:exported="true"

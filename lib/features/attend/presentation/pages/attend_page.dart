@@ -5,7 +5,7 @@ import '../../../../common/utils/constants.dart';
 import '../../../../common/utils/api_client.dart';
 import '../../../../common/config/api_config.dart';
 import '../../../../common/services/pending_notification_store.dart';
-import '../widgets/mjpeg_view.dart';
+import '../../../intercom/domain/cloud_media_service.dart';
 
 class AttendVisitPage extends StatefulWidget {
   final int visitId;
@@ -29,16 +29,35 @@ class _AttendVisitPageState extends State<AttendVisitPage> {
   String? _visitorName;
   String? _visitorDni;
   String _visitorType = 'walk-in';
-  String _streamUrl = '';
 
   /// null = still deciding; 'APPROVED'/'REJECTED' = decision made, showing
   /// the confirmation screen before returning to the home screen.
   String? _decisionResult;
 
+  late CloudMediaService _mediaService;
+  late final String _wsUrl;
+
   @override
   void initState() {
     super.initState();
+    _wsUrl = edgeBase().replaceFirst('http', 'ws') + '/ws/audio';
+    final videoUrl = edgeBase() + '/video-stream';
+    _mediaService = CloudMediaService(deviceId: 'nexbell-door-01');
+    _mediaService.addListener(_onMediaUpdate);
+    _mediaService.connectAudio(_wsUrl);
+    _mediaService.connectVideo(videoUrl);
     _loadData();
+  }
+
+  @override
+  void dispose() {
+    _mediaService.removeListener(_onMediaUpdate);
+    _mediaService.dispose();
+    super.dispose();
+  }
+
+  void _onMediaUpdate() {
+    if (mounted) setState(() {});
   }
 
   bool get _isPreRegistered => widget.visitType == 'PRE_REGISTERED_VISIT';
@@ -46,10 +65,6 @@ class _AttendVisitPageState extends State<AttendVisitPage> {
   Future<void> _loadData() async {
     try {
       if (_isPreRegistered) {
-        // The camera is a single global feed served by the Edge service on the
-        // LAN (same source the web uses), NOT the backend's dead MQTT path.
-        _streamUrl = '${edgeBase()}/video-stream';
-
         final detailResponse = await ApiClient.get('/api/intercom/pre-registered-visits/${widget.visitId}');
         if (detailResponse.statusCode == 200) {
           final detailData = jsonDecode(detailResponse.body);
@@ -58,11 +73,6 @@ class _AttendVisitPageState extends State<AttendVisitPage> {
           _visitorType = 'pre-registered';
         }
       } else {
-        // 1. Live video: single global camera feed from the Edge service (same
-        // source as the web). The backend's per-visit stream path is the old
-        // MQTT-based feed and no longer carries frames.
-        _streamUrl = '${edgeBase()}/video-stream';
-
         // 2. Fetch visitor info from pending queue to resolve DNI if possible
         final queueResponse = await ApiClient.get('/api/intercom/queue/pending');
         bool foundInQueue = false;
@@ -213,14 +223,19 @@ class _AttendVisitPageState extends State<AttendVisitPage> {
                     borderRadius: BorderRadius.circular(30),
                     child: Stack(
                       children: [
-                        // Live camera feed from the ESP32 (same endpoint the web uses)
-                        if (_streamUrl.isNotEmpty)
+                        // Live camera feed from the ESP32 (Cloud Hub)
+                        if (_mediaService.latestFrame != null)
                           Positioned.fill(
-                            child: MjpegView(
-                              url: _streamUrl,
-                              placeholder: const Center(
-                                child: Icon(Icons.videocam_off, color: Colors.white24, size: 48),
-                              ),
+                            child: Image.memory(
+                              _mediaService.latestFrame!,
+                              fit: BoxFit.cover,
+                              gaplessPlayback: true,
+                            ),
+                          )
+                        else
+                          const Positioned.fill(
+                            child: Center(
+                              child: Icon(Icons.videocam_off, color: Colors.white24, size: 48),
                             ),
                           ),
                         _buildCornerBrackets(),
@@ -276,6 +291,38 @@ class _AttendVisitPageState extends State<AttendVisitPage> {
                     ),
                   ),
                 ),
+              ),
+
+              const SizedBox(height: 24),
+
+              // Push to Talk Button
+              GestureDetector(
+                onTapDown: (_) {
+                  _mediaService.startMic();
+                },
+                onTapUp: (_) {
+                  _mediaService.stopMic();
+                },
+                onTapCancel: () {
+                  _mediaService.stopMic();
+                },
+                child: Container(
+                  width: 80,
+                  height: 80,
+                  decoration: BoxDecoration(
+                    color: Colors.blueAccent.withOpacity(0.2),
+                    shape: BoxShape.circle,
+                    border: Border.all(color: Colors.blueAccent),
+                  ),
+                  child: const Center(
+                    child: Icon(Icons.mic, color: Colors.blueAccent, size: 36),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 8),
+              const Text(
+                'Hold to Talk',
+                style: TextStyle(color: Colors.white54, fontSize: 12),
               ),
 
               const SizedBox(height: 24),
